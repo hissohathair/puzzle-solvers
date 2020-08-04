@@ -92,17 +92,49 @@ class TestSudoku(unittest.TestCase):
 		self.assertEqual(self.p.get(x, y), test_value)
 		self.assertFalse(self.p.is_empty(x, y))
 
+	def test_get_values(self):
+		with self.subTest("get_row_values"):
+			self.assertEqual(self.p.get_row_values(0, include_empty=True), [8, 9, 0, 4, 0, 0, 0, 5, 6])
+			self.assertEqual(self.p.get_row_values(0, include_empty=False), [8, 9, 4, 5, 6])
+			self.assertEqual(self.p.get_row_values(7, include_empty=True), [0, 3, 0, 0, 2, 1, 0, 7, 8])
+			self.assertEqual(self.p.get_row_values(7, include_empty=False), [3, 2, 1, 7, 8])
+
+		with self.subTest("get_column_values"):
+			self.assertEqual(self.p.get_column_values(0, include_empty=True), [8, 1, 0, 9, 0, 0, 0, 0, 4])
+			self.assertEqual(self.p.get_column_values(0, include_empty=False), [8, 1, 9, 4])
+			self.assertEqual(self.p.get_column_values(7, include_empty=True), [5, 9, 0, 0, 4, 0, 0, 7, 1])
+			self.assertEqual(self.p.get_column_values(7, include_empty=False), [5, 9, 4, 7, 1])
+
+		with self.subTest("get_cage_values"):
+			self.assertEqual(self.p.get_cage_values(0, 0, include_empty=True), [8, 9, 0, 1, 4, 0, 0, 0, 0])
+			self.assertEqual(self.p.get_cage_values(0, 0, include_empty=False), [8, 9, 1, 4])
+			self.assertEqual(self.p.get_cage_values(7, 0, include_empty=True), [0, 0, 8, 0, 3, 0, 4, 2, 0])
+			self.assertEqual(self.p.get_cage_values(7, 0, include_empty=False), [8, 3, 4, 2])
+			self.assertEqual(self.p.get_cage_values(7, 7, include_empty=True), [0, 0, 0, 0, 7, 8, 0, 1, 3])
+			self.assertEqual(self.p.get_cage_values(7, 7, include_empty=False), [7, 8, 1, 3])
+
 	def test_possible_values(self):
 		"""
 		Test that function returns legal values 
 		"""
-		for x in range(sudoku.MAX_CELL_VALUE):
-			for y in range(sudoku.MAX_CELL_VALUE):
-				with self.subTest(i=x*y):
-					vlist = self.p.get_possible_values(x,y)
-					self.assertTrue(len(vlist) >= 1)
-					for v in vlist:
-						self.assertTrue(self.p.is_legal(x, y, v))
+		with self.subTest("Checking possible values"):
+			self.assertEqual(self.p.get_possible_values(0, 0), {8})
+			self.assertEqual(self.p.get_possible_values(2, 2), {2, 3, 5, 6, 7})
+			self.assertEqual(self.p.get_possible_values(7, 0), {5, 6})
+
+		with self.subTest("Possible values are legal"):
+			for x in range(sudoku.MAX_CELL_VALUE):
+				for y in range(sudoku.MAX_CELL_VALUE):
+					with self.subTest(f"Cell {x},{y}"):
+						vlist = self.p.get_possible_values(x,y)
+						if self.p.is_empty(x, y):
+							self.assertTrue(len(vlist) >= 1)
+						else:
+							self.assertTrue(len(vlist) == 1)
+
+						with self.subTest(f"Cell {x},{y} -> {vlist}"):
+							for v in vlist:
+								self.assertTrue(self.p.is_legal(x, y, v))
 
 	def test_legal_move(self):
 		"""

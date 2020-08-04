@@ -138,37 +138,31 @@ class SudokuPuzzle(object):
 		Return the list of values from row x as a list
 		"""
 		if include_empty:
-			ret = list(self.grid[x])
+			return list(self.grid[x])
 		else:
-			ret = list(filter(lambda a: a != EMPTY_CELL, self.grid[x]))
-		return ret
+			return [i for i in self.grid[x] if i != EMPTY_CELL]
 
 	def get_column_values(self, y, include_empty=True):
 		"""
 		Return the list of values from column y as a list
 		"""
-		values = []
-		for x in range(MAX_CELL_VALUE):
-			if include_empty:
-				values.append(self.grid[x][y])
-			elif self.grid[x][y] != EMPTY_CELL:
-				values.append(self.grid[x][y])
-		
-		return values
+		if include_empty:
+			return [i[y] for i in self.grid]
+		else:
+			return [i[y] for i in self.grid if i[y] != EMPTY_CELL]
 
 	def get_cage_values(self, x, y, include_empty=True):
 		"""
 		Return the list of values from the cage containing cell x,y as a list
 		"""
-		values = []
 		cage_x = (x // CAGE_SIZE) * CAGE_SIZE
 		cage_y = (y // CAGE_SIZE) * CAGE_SIZE
-		for i in range(cage_x, cage_x + CAGE_SIZE):
-			for j in range(cage_y, cage_y + CAGE_SIZE):
-				if include_empty:
-					values.append(self.grid[i][j])
-				elif self.grid[i][j] != EMPTY_CELL:
-					values.append(self.grid[i][j])
+		values = [i[cage_y:cage_y+CAGE_SIZE] for i in self.grid[cage_x:cage_x+CAGE_SIZE]]
+
+		if include_empty:
+			return [i for sublist in values for i in sublist]
+		else:
+			return [i for sublist in values for i in sublist if i != EMPTY_CELL ]
 		
 		return values
 

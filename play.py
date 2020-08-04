@@ -16,7 +16,7 @@ SOLVED_PUZZLE = [
 	[4, 2, 7, 8, 9, 6, 5, 1, 3]
  ]
 
-def solve_using_backtracking_cp(puzzle):
+def solve_using_backtracking(puzzle):
     """
     Attempts to solve `puzzle` using backtracking, trying legal values and testing first. Returns True if puzzle is solved, 
     False if the current solution path is a dead-end (results in invalid puzzle). Calls itself recursively.
@@ -34,22 +34,22 @@ def solve_using_backtracking_cp(puzzle):
         except ValueError:
         	continue
 
-        if solve_using_backtracking_cp(puzzle):
+        if solve_using_backtracking(puzzle):
             return True
         else:
             puzzle.clear(x, y)
 
     return False
 
-def play_sudoku(i=0):
-	p = sudoku.SudokuPuzzleConstrained(sudoku.SAMPLE_PUZZLES[i]['puzzle'])
+def play_sudoku(i=0, use_class=sudoku.SudokuPuzzleConstrained):
+	p = use_class(sudoku.SAMPLE_PUZZLES[i]['puzzle'])
 	print(sudoku.SAMPLE_PUZZLES[i]['label'])
 	print(p)
 
-	solve_using_backtracking_cp(p)
+	solve_using_backtracking(p)
 	print("\nSolution:")
 	print(p)
 	assert(p.is_solved())
 	return
 
-cProfile.run('play_sudoku(6)', sort='cumtime')
+cProfile.run('play_sudoku(6)', sort='tottime')
