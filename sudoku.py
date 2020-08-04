@@ -65,6 +65,20 @@ class SudokuPuzzle(object):
 		"""
 		return self.grid[x][y]
 
+	def is_legal(self, x, y, v):
+		"""
+		Returns true if placing value v at position x,y is legal based on current grid values.
+		Might still be an incorrect move, function is only asserting if it looks legal or not.
+		Does not actually write value v to x,y -- use set() for that.
+		"""
+
+		# Replaying an already played move is allowed
+		if self.grid[x][y] == v:
+			return True
+
+		# Check that value v is not already in row x, or column y, or cage containing x,y
+		return (v not in self.get_row_values(x)) and (v not in self.get_column_values(y)) and (v not in self.get_cage_values(x, y))
+
 	def set(self, x, y, v):
 		"""
 		Sets the cell at x,y to value v. Will raise an exception if this move is illegal.
@@ -188,20 +202,6 @@ class SudokuPuzzle(object):
 		else:
 			return [i for sublist in values for i in sublist if i != EMPTY_CELL ]
 
-	def is_legal(self, x, y, v):
-		"""
-		Returns true if placing value v at position x,y is legal based on current grid values.
-		Might still be an incorrect move, function is only asserting if it looks legal or not.
-		Does not actually write value v to x,y -- use set() for that.
-		"""
-
-		# Replaying an already played move is allowed
-		if self.grid[x][y] == v:
-			return True
-
-		# Check that value v is not already in row x, or column y, or cage containing x,y
-		return (v not in self.get_row_values(x)) and (v not in self.get_column_values(y)) and (v not in self.get_cage_values(x, y))
-
 	def is_puzzle_valid(self):
 		"""
 		Returns true if the puzzle is still valid (i.e. obeys the rules). Empty cells are allowed.
@@ -301,6 +301,16 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		self.allowed_values_for_cage = [COMPLETE_SET - set(self.get_cage_values(cagenum_to_xy(n)[0], cagenum_to_xy(n)[1], include_empty=False)) for n in range(MAX_CELL_VALUE)]
 		return
 		
+	def is_legal(self, x, y, v):
+		"""
+		Return True if it is legal to write value v to cell x,y.
+		Can take advantage of the allowed_values
+		"""
+		# It's OK to write a value already current
+		if self.grid[x][y] == v:
+			return True
+		return v in self.get_possible_values(x, y)
+
 	def set(self, x, y, v):
 		"""
 		After setting the value v at position x,y, also updates the possibility matrix to exclude
@@ -339,16 +349,6 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		self.allowed_values_for_cage[cagexy_to_num(x,y)].add(v)
 		return
 
-	def is_legal(self, x, y, v):
-		"""
-		Return True if it is legal to write value v to cell x,y.
-		Can take advantage of the allowed_values
-		"""
-		# It's OK to write a value already current
-		if self.grid[x][y] == v:
-			return True
-		return v in self.get_possible_values(x, y)
-
 	def get_possible_values(self, x, y):
 		"""
 		Returns the current set of possible values at x, y. This is based on the intersection
@@ -361,6 +361,30 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 			return self.allowed_values_for_row[x] & self.allowed_values_for_col[y] & self.allowed_values_for_cage[cagexy_to_num(x,y)]
 		else:
 			return set([self.grid[x][y]])
+
+	def update_using_constraints(self):
+		"""
+		Loops through all the empty cells and checks what allowed values are possible there. When it
+		finds a cell with a single allowed value, will set the cell to that value. Continues until
+		there are either no empty cells left, or it's no longer possible to update a cell based on
+		single allowed values remaining.
+
+		Returns number of cells updated.
+		"""
+		num_updated = 1
+		total_updated = 0
+		while num_updated > 0:
+			num_updated = 0
+			m = self.get_first_empty_cell()
+			if len(m) < 1:
+				break
+			values = self.get_possible_values(m[0], m[1])
+			if len(values) == 1:
+				(v,) = values
+				self.set(m[0], m[1], v)
+				num_updated += 1
+			total_updated += num_updated
+		return num_updated
 
 	def as_html(self):
 		"""

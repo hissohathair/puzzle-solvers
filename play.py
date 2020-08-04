@@ -34,6 +34,8 @@ def solve_using_backtracking(puzzle):
         except ValueError:
         	continue
 
+        n = puzzle.update_using_constraints()
+        print(f"Updated {n} additional cells based on constraints")
         if solve_using_backtracking(puzzle):
             return True
         else:
