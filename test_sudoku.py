@@ -36,6 +36,29 @@ ILLEGAL_MOVES = [
 			[0, 0, 9], [0, 0, 1], [2, 2, 4], [2, 3, 4]
 		]
 
+class TestFunctions(unittest.TestCase):
+	def test_cagenum_toxy(self):
+		"""
+		0 (0,0)   1 (0, 3)   2 (0, 6)
+		3 (3,0)   4 (3, 3)   5 (3, 6)
+		6 (6,0)   7 (6, 3)   8 (6, 6)
+		"""
+		correct_values = [[0,0], [0,3], [0,6], 
+						  [3,0], [3,3], [3,6],
+						  [6,0], [6,3], [6,6]]
+		for i in range(sudoku.MAX_CELL_VALUE):
+			with self.subTest(f"Cage {i} at {correct_values[i]}"):
+				self.assertEqual(sudoku.cagenum_to_xy(i), correct_values[i])
+				self.assertEqual(sudoku.cagexy_to_num(correct_values[i][0], correct_values[i][1]), i)
+
+	def test_cagexy_tonum(self):
+		for x in range(sudoku.MAX_CELL_VALUE):
+			for y in range(sudoku.MAX_CELL_VALUE):
+				with self.subTest(f"Cage for {x},{y}"):
+					num = sudoku.cagexy_to_num(x, y)
+					pos = sudoku.cagenum_to_xy(num)
+					self.assertEqual(sudoku.cagexy_to_num(x,y), sudoku.cagexy_to_num(pos[0],pos[1]))
+
 class TestSudoku(unittest.TestCase):
 	def setUp(self):
 		self.p = sudoku.SudokuPuzzle(TEST_PUZZLE)
@@ -143,6 +166,7 @@ class TestSudoku(unittest.TestCase):
 		for i in range(len(self.legal_moves)):
 			with self.subTest(i=i):
 				m = self.legal_moves[i]
+				self.assertEqual(SOLVED_PUZZLE[m[0]][m[1]], m[2])  # test data error
 				self.assertTrue(self.p.is_legal(m[0], m[1], m[2]))
 
 	def test_invalid_move(self):
@@ -273,7 +297,7 @@ class TestSudokuConstrained(unittest.TestCase):
 
 	def test_clear_and_set(self):
 		"""
-		Correctly clear and set a.get value
+		Correctly clear and set a value
 		"""
 		x = 1
 		y = 1
@@ -286,38 +310,84 @@ class TestSudokuConstrained(unittest.TestCase):
 		self.assertEqual(self.p.get(x, y), test_value)
 		self.assertFalse(self.p.is_empty(x, y))
 
+	def test_allowed_values(self):
+		with self.subTest(f"allowed_values_for_row"):
+			self.assertEqual(self.p.allowed_values_for_row[0], {1, 2, 3, 7})
+			self.assertEqual(self.p.allowed_values_for_row[1], {2, 6, 7, 8})
+			self.assertEqual(self.p.allowed_values_for_row[6], {1, 2, 3, 4, 5, 6, 7, 9})
+			self.assertEqual(self.p.allowed_values_for_row[8], {5, 7, 8, 9})
+
+		with self.subTest(f"allowed_values_for_col"):
+			self.assertEqual(self.p.allowed_values_for_col[0], {2, 3, 5, 6, 7})
+			self.assertEqual(self.p.allowed_values_for_col[6], {1, 3, 4, 5, 6, 7, 9})
+			self.assertEqual(self.p.allowed_values_for_col[8], {1, 2, 4, 7, 9})
+
+		with self.subTest(f"allowed_values_for_cage"):
+			self.assertEqual(self.p.allowed_values_for_cage[0], {2, 3, 5, 6, 7})
+			self.assertEqual(self.p.allowed_values_for_cage[2], {1, 2, 3, 4, 7})
+			self.assertEqual(self.p.allowed_values_for_cage[8], {2, 4, 5, 6, 9})
+
+		with self.subTest(f"allowed_values updated (6,6) <- 6"):
+			self.p.set(6, 6, 6)
+			self.assertEqual(self.p.allowed_values_for_row[6], {1, 2, 3, 4, 5, 7, 9})
+			self.assertEqual(self.p.allowed_values_for_col[6], {1, 3, 4, 5, 7, 9})
+			self.assertEqual(self.p.allowed_values_for_cage[8], {2, 4, 5, 9})
+
+
 	def test_possible_values(self):
 		"""
 		Test that function returns legal values 
 		"""
-		for x in range(sudoku.MAX_CELL_VALUE):
-			for y in range(sudoku.MAX_CELL_VALUE):
-				with self.subTest(f"Check {x},{y}"):
-					vlist = self.p.get_possible_values(x,y)
-					self.assertTrue(len(vlist) >= 1)
-					self.assertEqual(self.p.get_possible_values(x,y), self.p.get_possible_values(x, y, recalculate=True))
+		with self.subTest("Checking possible values"):
+			self.assertEqual(self.p.get_possible_values(0, 0), {8})
+			self.assertEqual(self.p.get_possible_values(2, 2), {2, 3, 5, 6, 7})
+			self.assertEqual(self.p.get_possible_values(7, 0), {5, 6})
+			self.assertEqual(self.p.get_possible_values(4, 4), {6})
 
-					# Unlike the equivalent test in SudokuPuzzle, we don't assertTrue(is_legal) for every value in vlist,
-					# because it will return False for some values in v when that value is the only option for some other
-					# cell in that row, column, or cage. Which is correct behaviour for is_legal and entirely the point.
-					# Best we can do here is check that the correct answer is always in the possible list.
-					self.assertTrue(SOLVED_PUZZLE[x][y] in vlist)
+		with self.subTest("Possible values are legal"):
+			for x in range(sudoku.MAX_CELL_VALUE):
+				for y in range(sudoku.MAX_CELL_VALUE):
+					vlist = self.p.get_possible_values(x,y)
+					with self.subTest(f"Cell {x},{y} <- {vlist}"):
+						if self.p.is_empty(x, y):
+							self.assertTrue(len(vlist) >= 1)
+						else:
+							self.assertTrue(len(vlist) == 1)
+
+						# Unlike the equivalent test in SudokuPuzzle, we don't assertTrue(is_legal) for every value in vlist,
+						# because it will return False for some values in v when that value is the only option for some other
+						# cell in that row, column, or cage. Which is correct behaviour for is_legal and entirely the point.
+						# Best we can do here is check that the correct answer is always in the possible list.
+						self.assertTrue(SOLVED_PUZZLE[x][y] in vlist)
+		return
 
 	def test_legal_move(self):
 		"""
 		Correctly tell us if a move is legal
 		"""
-		for i in range(len(self.legal_moves)):
-			with self.subTest(i=i):
-				m = self.legal_moves[i]
+		for m in self.legal_moves:
+			with self.subTest(f"Legal move {m} is_legal"):
+				# Expect this to be "legal"
 				self.assertTrue(self.p.is_legal(m[0], m[1], m[2]))
-				self.assertEqual(self.p.get_possible_values(m[0], m[1]), self.p.get_possible_values(m[0], m[1]))
+
+		for m in self.legal_moves:
+			with self.subTest(f"Legal move {m} is among allowed values"):
+				if self.p.is_empty(m[0], m[1]):
+					self.assertTrue(m[2] in self.p.allowed_values_for_row[m[0]])
+					self.assertTrue(m[2] in self.p.allowed_values_for_col[m[1]])
+					self.assertTrue(m[2] in self.p.allowed_values_for_cage[sudoku.cagexy_to_num(m[0], m[1])])
 				self.assertTrue(m[2] in self.p.get_possible_values(m[0], m[1]))
 
+		for m in self.legal_moves:
+			with self.subTest(f"Legal move {m} can set cell and updates allowed values"):
+				# After writing value in cell, expect it to be only possible value for that cell
 				self.p.set(m[0], m[1], m[2])
-				self.assertEqual(self.p.get_possible_values(m[0], m[1]), self.p.get_possible_values(m[0], m[1]))
 				self.assertEqual(self.p.get_possible_values(m[0], m[1]), set([m[2]]))
-				self.assertTrue(m[2] in self.p.get_possible_values(m[0], m[1]))
+
+				# Expect the value to no longer be allowed in that row, column, or cage
+				self.assertTrue(m[2] not in self.p.allowed_values_for_row[m[0]])
+				self.assertTrue(m[2] not in self.p.allowed_values_for_col[m[1]])
+				self.assertTrue(m[2] not in self.p.allowed_values_for_cage[sudoku.cagexy_to_num(m[0], m[1])])
 
 	def test_play_legal_game(self):
 		"""
@@ -338,28 +408,32 @@ class TestSudokuConstrained(unittest.TestCase):
 		self.assertFalse(self.p.is_solved()) # test data error
 
 		# Make some legal moves
-		self.subTest(i=0)
-		for m in self.legal_moves:
-			self.p.set(m[0], m[1], m[2])
-		self.assertTrue(self.p.is_puzzle_valid())
+		with self.subTest("Legal moves"):
+			for m in self.legal_moves:
+				with self.subTest(f"Legal move: {m}"):
+					self.p.set(m[0], m[1], m[2])
+			self.assertTrue(self.p.is_puzzle_valid())
 
 		# Attempt to make some illegal moves
-		self.subTest(i=1)
-		for m in self.illegal_moves:
-			self.assertFalse(self.p.is_legal(m[0], m[1], m[2]))
-			self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
-		self.assertTrue(self.p.is_puzzle_valid())
+		with self.subTest("Illegal moves"):
+			for m in self.illegal_moves:
+				with self.subTest(f"Illegal move: {m}"):
+					self.assertFalse(self.p.is_legal(m[0], m[1], m[2]))
+					self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
+			self.assertTrue(self.p.is_puzzle_valid())
 
 		# Finish the game
-		s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
-		for m in self.p.get_all_empty_cells():
-			v = s.get(m[0], m[1])
-			if not self.p.is_legal(m[0], m[1], v+1):
-				self.assertRaises(ValueError, self.p.set, m[0], m[1], v+1)
-			self.p.set(m[0], m[1], v)
+		with self.subTest("Finish game"):
+			s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
+			for m in self.p.get_all_empty_cells():
+				v = s.get(m[0], m[1])
+				with self.subTest(f"{m}={v}"):
+					if not self.p.is_legal(m[0], m[1], v+1):
+						self.assertRaises(ValueError, self.p.set, m[0], m[1], v+1)
+					self.p.set(m[0], m[1], v)
 
-		self.assertTrue(self.p.is_solved())
-
+			self.assertTrue(self.p.is_solved())
+		return
 
 if __name__ == '__main__':
 	unittest.main()

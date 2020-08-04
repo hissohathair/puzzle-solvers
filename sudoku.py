@@ -21,6 +21,26 @@ def build_empty_grid():
 
 	return ret
 
+def cagenum_to_xy(i):
+	"""
+	Take the "cages" to be numbered from 0 to 8, starting with 0 in the top left,
+	then running left to right and down the rows so that 8 is bottom right. Cage
+	0 (0,0)   1 (0, 3)   2 (0, 6)
+	3 (3,0)   4 (3, 3)   5 (3, 6)
+	6 (6,0)   7 (6, 3)   8 (6, 6)
+	"""
+	x = (i // 3) * CAGE_SIZE
+	y = (i % 3) * CAGE_SIZE
+	return [x, y]
+
+def cagexy_to_num(x,y):
+	"""
+	Given a call at x,y return what the sequential cage number is.
+	"""
+	cage_x = (x // CAGE_SIZE)
+	cage_y = (y // CAGE_SIZE)
+	return (cage_x * CAGE_SIZE) + cage_y
+
 class SudokuPuzzle(object):
 	def __init__(self, starting_grid=[]):
 		"""
@@ -53,21 +73,25 @@ class SudokuPuzzle(object):
 			raise ValueError(f"Value {v} out of range ({MIN_CELL_VALUE}-{MAX_CELL_VALUE})")
 		
 		if self.is_legal(x, y, v):
-			if self.is_empty(x, y):
+			if self.grid[x][y] == EMPTY_CELL:
 				self._num_clues += 1
 				self._all_empty_cells.remove([x,y])
 			self.grid[x][y] = v
 		else:
 			raise ValueError(f"Value {v} not allowed at {x},{y} (illegal move)")
+		return
 		
 	def clear(self, x, y):
 		"""
 		Clears the value for a cell at x,y (sets to 0)
 		"""
-		self.grid[x][y] = EMPTY_CELL
-		self._num_clues -= 1
-		self._all_empty_cells.append([x,y])
-		self._all_empty_cells.sort()
+		# OK to "clear" an already empty cell, but it's a no-op
+		if self.grid[x][y] != EMPTY_CELL:
+			self.grid[x][y] = EMPTY_CELL
+			self._num_clues -= 1
+			self._all_empty_cells.append([x,y])
+			self._all_empty_cells.sort()
+		return
 
 	def is_empty(self, x, y):
 		"""
@@ -122,8 +146,8 @@ class SudokuPuzzle(object):
 		empty list -- if the cell is not empty will return simply the value placed there.
 		"""
 
-		if not self.is_empty(x,y):
-			return set([self.get(x,y)])
+		if self.grid[x][y] != EMPTY_CELL:
+			return set([self.grid[x][y]])
 
 		# Get the set of all values that are NOT legal because they exist in the row/col/cage
 		used_values = set(self.get_row_values(x, include_empty=False) 
@@ -163,8 +187,6 @@ class SudokuPuzzle(object):
 			return [i for sublist in values for i in sublist]
 		else:
 			return [i for sublist in values for i in sublist if i != EMPTY_CELL ]
-		
-		return values
 
 	def is_legal(self, x, y, v):
 		"""
@@ -174,18 +196,11 @@ class SudokuPuzzle(object):
 		"""
 
 		# Replaying an already played move is allowed
-		if self.get(x,y) == v:
+		if self.grid[x][y] == v:
 			return True
 
 		# Check that value v is not already in row x, or column y, or cage containing x,y
-		if v in self.get_row_values(x):
-			return False
-		if v in self.get_column_values(y):
-			return False
-		if v in self.get_cage_values(x, y):
-			return False
-
-		return True
+		return (v not in self.get_row_values(x)) and (v not in self.get_column_values(y)) and (v not in self.get_cage_values(x, y))
 
 	def is_puzzle_valid(self):
 		"""
@@ -204,11 +219,11 @@ class SudokuPuzzle(object):
 				return False
 
 		# Does any cage contain repeated values?
-		for x in range(MIN_CELL_VALUE, MAX_CELL_VALUE+1, CAGE_SIZE):
-			for y in range(MIN_CELL_VALUE, MAX_CELL_VALUE+1, CAGE_SIZE):
-				values = self.get_cage_values(x, y, include_empty=False)
-				if len(values) != len(set(values)):
-					return False
+		for i in range(MAX_CELL_VALUE):
+			pos = cagenum_to_xy(i)
+			values = self.get_cage_values(pos[0], pos[1], include_empty=False)
+			if len(values) != len(set(values)):
+				return False
 
 		return True
 
@@ -236,11 +251,11 @@ class SudokuPuzzle(object):
 				looks_valid = False
 
 		# Does each cage have all required values and no duplicates?
-		for x in range(MIN_CELL_VALUE, MAX_CELL_VALUE+1, CAGE_SIZE):
-			for y in range(MIN_CELL_VALUE, MAX_CELL_VALUE+1, CAGE_SIZE):
-				values = set(self.get_cage_values(x, y))
-				if values != COMPLETE_SET:
-					looks_valid = False
+		for i in range(MAX_CELL_VALUE):
+			pos = cagenum_to_xy(i)
+			values = set(self.get_cage_values(pos[0], pos[1]))
+			if values != COMPLETE_SET:
+				looks_valid = False
 
 		return looks_valid
 
@@ -268,7 +283,6 @@ class SudokuPuzzle(object):
 		ret = '<table class="{}"><tr>{}</tr></table>'.format(css_class, '</tr><tr>'.join('<td>{}</td>'.format('</td><td>'.join(str(_) for _ in row)) for row in data))
 		return ret
 
-
 class SudokuPuzzleConstrained(SudokuPuzzle):
 	def __init__(self, starting_grid=[]):
 		"""
@@ -276,17 +290,15 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		matrix that will act as our Constraint check.
 		"""
 		super().__init__(starting_grid=starting_grid)
-		self.init_possibility_matrix()
+		self.init_contraints()
 
-	def init_possibility_matrix(self):
+	def init_contraints(self):
 		"""
-		Creates a matrix of possible values for each cell, based on current puzzle state.
-		Should only need to be called by the constructor once.
+		Initializes the possible values for each row, each column, and each cage.
 		"""
-		self.possibility_matrix = build_empty_grid()
-		for x in range(MAX_CELL_VALUE):
-			for y in range(MAX_CELL_VALUE):
-				self.possibility_matrix[x][y] = self.get_possible_values(x, y, recalculate=True)
+		self.allowed_values_for_row = [COMPLETE_SET - set(self.get_row_values(x, include_empty=False)) for x in range(MAX_CELL_VALUE)]
+		self.allowed_values_for_col = [COMPLETE_SET - set(self.get_column_values(y, include_empty=False)) for y in range(MAX_CELL_VALUE)]
+		self.allowed_values_for_cage = [COMPLETE_SET - set(self.get_cage_values(cagenum_to_xy(n)[0], cagenum_to_xy(n)[1], include_empty=False)) for n in range(MAX_CELL_VALUE)]
 		return
 		
 	def set(self, x, y, v):
@@ -295,34 +307,16 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		the value v from row x, column y, and cage containing x,y. If this leaves any cell with no
 		possible values, then raises an exception because the move cannot be valid.
 		"""
+		# If cell is *already* set, clear it first. Then set it.
+		if self.grid[x][y] != EMPTY_CELL:
+			self.clear(x, y)
 		super().set(x, y, v)
 
-		# Exclude from row x
-		for j in range(MAX_CELL_VALUE):
-			if j != y and v in self.possibility_matrix[x][j]:
-				self.possibility_matrix[x][j].remove(v)
-				if len(self.possibility_matrix[x][j]) < 1:
-					raise ValueError(f"Cell at {x},{j} has no possible values left after updating row")
-
-		# Exclude from column y
-		for i in range(MAX_CELL_VALUE):
-			if i != x and v in self.possibility_matrix[i][y]:
-				self.possibility_matrix[i][y].remove(v)
-				if len(self.possibility_matrix[i][y]) < 1:
-					raise ValueError(f"Cell at {i},{y} has no possible values left after updating column")
-
-		# Exclude from cage containing x,y
-		cell_x = x // 3
-		cell_y = y // 3
-		for i in range(cell_x * 3, (cell_x+1) * 3):
-			for j in range(cell_y * 3, (cell_y+1) * 3):
-				if i != x and j != y and v in self.possibility_matrix[i][j]:
-					self.possibility_matrix[i][j].remove(v)
-					if len(self.possibility_matrix[i][j]) < 1:
-						raise ValueError(f"Cell at {i},{j} has no possible values left after updating cage")
-
-		# Lock in value "v" as only possibility in this cell now
-		self.possibility_matrix[x][y] = set([v])
+		# Exclude from row x and column y. Don't bother checking to see if it's in the set --
+		# if it is NOT then it is an error to write the value to this cell anyway
+		self.allowed_values_for_row[x].remove(v)
+		self.allowed_values_for_col[y].remove(v)
+		self.allowed_values_for_cage[cagexy_to_num(x,y)].remove(v)
 		return
 
 	def clear(self, x, y):
@@ -334,102 +328,39 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 
 		# Is OK to "clear" an empty cell. Otherwise fetch the current value, then call super
 		# to clear the cell.
-		if self.is_empty(x,y):
+		if self.grid[x][y] == EMPTY_CELL:
 			return
-		v = self.get(x, y)
+		v = self.grid[x][y]
 		super().clear(x, y)
 
-		# Let's assume the value "v" doesn't appear anywhere else in this row, column, or cage
-		#assert(self.is_puzzle_valid())
-
-		# Therefore, can add this value back to list of possibles in this row and column
-		for i in range(MAX_CELL_VALUE):
-			self.possibility_matrix[x][i].add(v)
-			self.possibility_matrix[i][y].add(v)
-
-		# Also can go into the cell
-		cell_x = x // 3
-		cell_y = y // 3
-		for i in range(cell_x * 3, (cell_x+1) * 3):
-			for j in range(cell_y * 3, (cell_y+1) * 3):
-				self.possibility_matrix[i][j].add(v)
-
-		# Finally, set the possible values for the newly cleared cell
-		self.possibility_matrix[x][y] = self.get_possible_values(x, y, recalculate=True)
+		# This value available again for this row, column, and cage
+		self.allowed_values_for_row[x].add(v)
+		self.allowed_values_for_col[y].add(v)
+		self.allowed_values_for_cage[cagexy_to_num(x,y)].add(v)
 		return
-
-	def get_possible_values(self, x, y, recalculate=False):
-		"""
-		Returns the current set of possible values at x, y. Super's method `get_possible_values`
-		differs in that it only consults the puzzle grid itself, and so will build the list new
-		each time it is called. This method however returns the "cached" values from the possibility
-		matrix. It should be (1) faster; and (2) always in agreement with super()->get_possible_values.
-		"""
-
-		# TODO: It's possible for is_legal to return False on a value that is returned by
-		# get_possible_values -- but if the value is not "legal" then it should not be "possible".
-		# This happens because get_possible_values does not consider the case where one of its "possible"
-		# values is also the *only* possible value somewhere in that same row, column, or cage.
-		#
-		# Left for now because the whole point of the solving algorithm is to utilise that kind
-		# of logic. But does seem odd and not really proper behaviour for this class.
-		#
-
-		if recalculate:
-			return set(super().get_possible_values(x, y))
-		else:
-			return set(self.possibility_matrix[x][y])
 
 	def is_legal(self, x, y, v):
 		"""
-		Returns true if placing value v at position x,y is legal based on current grid values,
-		AND the contents of the possibility matrix (checking if a cell would have no possible
-		values left if the move was made.
-		Might still be an incorrect move, function is only asserting if it looks legal or not.
-		Does not actually write value v to x,y -- use set() for that.
+		Return True if it is legal to write value v to cell x,y.
+		Can take advantage of the allowed_values
 		"""
-
-		# Replaying an already played move is allowed. Parent class view is relevant.
-		if self.get(x,y) == v:
+		# It's OK to write a value already current
+		if self.grid[x][y] == v:
 			return True
-		if not super().is_legal(x, y, v):
-			return False
+		return v in self.get_possible_values(x, y)
 
-		# Check that value v is not only value left in any cell sharing that row, column, or cage
-		vset = {v}
-		for j in range(MAX_CELL_VALUE):
-			if j!= y and self.possibility_matrix[x][j] == vset:
-				return False
-
-		for i in range(MAX_CELL_VALUE):
-			if i != x and self.possibility_matrix[i][y] == vset:
-				return False
-
-		cell_x = x // 3
-		cell_y = y // 3
-		for i in range(cell_x * 3, (cell_x+1) * 3):
-			for j in range(cell_y * 3, (cell_y+1) * 3):
-				if i != x and j != y and self.possibility_matrix[i][j] == vset:
-					return False
-
-		return True
-
-	def is_puzzle_valid(self):
+	def get_possible_values(self, x, y):
 		"""
-		Returns true if the puzzle is still valid (i.e. obeys the rules). Empty cells are allowed.
-		Also checks that the possibility matrix still has possible values for each cell.
+		Returns the current set of possible values at x, y. This is based on the intersection
+		of the sets of allowed values for the same row, column and cage. If there is a value
+		in the cell, then it is the onlt allowed value.
 		"""
-		# Check puzzle itself
-		if not super().is_puzzle_valid():
-			return False
+		# TODO: This function should be consistent with is_legal()
 
-		# Check that there are possible values left in every cell
-		for x in range(MAX_CELL_VALUE):
-			for y in range(MAX_CELL_VALUE):
-				if len(self.possibility_matrix[x][y]) < 1:
-					return False
-
-		return True
+		if self.grid[x][y] == EMPTY_CELL:
+			return self.allowed_values_for_row[x] & self.allowed_values_for_col[y] & self.allowed_values_for_cage[cagexy_to_num(x,y)]
+		else:
+			return set([self.grid[x][y]])
 
 	def as_html(self):
 		"""
@@ -453,7 +384,6 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 			
 		ret = '<table class="{}"><tr>{}</tr></table>'.format(css_class, '</tr><tr>'.join('<td>{}</td>'.format('</td><td>'.join(str(_) for _ in row)) for row in data))
 		return ret
-
 
 # Some puzzles for testing
 SAMPLE_PUZZLES = [
@@ -556,6 +486,21 @@ SAMPLE_PUZZLES = [
 		    [0, 0, 5, 0, 7, 3, 0, 0, 0],
 		    [0, 0, 0, 9, 0, 0, 7, 5, 0]
 	 	]
+	},
+	{'level': 'Hard',
+	 'label': 'Greg [2017]',
+	 'link': 'https://gpicavet.github.io/jekyll/update/2017/12/16/sudoku-solver.html',
+	 'puzzle': [
+	 		[8, 0, 0, 0, 0, 0, 0, 0, 0],
+	 		[0, 0, 3, 6, 0, 0, 0, 0, 0],
+	 		[0, 7, 0, 0, 9, 0, 2, 0, 0],
+	 		[0, 5, 0, 0, 0, 7, 0, 0, 0],
+	 		[0, 0, 0, 0, 4, 5, 7, 0, 0],
+	 		[0, 0, 0, 1, 0, 0, 0, 3, 0],
+	 		[0, 0, 1, 0, 0, 0, 0, 6, 8],
+	 		[0, 0, 8, 5, 0, 0, 0, 1, 0],
+	 		[0, 9, 0, 0, 0, 0, 4, 0, 0]
+	 ]
 	},
 	{'level': 'Diabolical',
 	  'label': 'Rico Alan 1',
