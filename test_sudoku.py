@@ -50,6 +50,7 @@ class TestFunctions(unittest.TestCase):
 			with self.subTest(f"Cage {i} at {correct_values[i]}"):
 				self.assertEqual(sudoku.cagenum_to_xy(i), correct_values[i])
 				self.assertEqual(sudoku.cagexy_to_num(correct_values[i][0], correct_values[i][1]), i)
+	return
 
 	def test_cagexy_tonum(self):
 		for x in range(sudoku.MAX_CELL_VALUE):
@@ -58,10 +59,22 @@ class TestFunctions(unittest.TestCase):
 					num = sudoku.cagexy_to_num(x, y)
 					pos = sudoku.cagenum_to_xy(num)
 					self.assertEqual(sudoku.cagexy_to_num(x,y), sudoku.cagexy_to_num(pos[0],pos[1]))
+	return
+
+	def test_count_clues(self):
+	# Test data
+	self.assertEqual(TEST_CLUES, sudoku.count_clues(TEST_PUZZLE))
+
+	# Manually calculated and stored in SAMPLE_PUZZLES
+	for sample in sudoku.SAMPLE_PUZZLES:
+		if 'clues' in sample:
+			self.assertEqual(sample['clues'], sudoku.count_clues(sample['puzzle']))
+	return
 
 class TestSudoku(unittest.TestCase):
 	def setUp(self):
 		self.p = sudoku.SudokuPuzzle(TEST_PUZZLE)
+		self.s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
 		self.legal_moves = LEGAL_MOVES
 		self.illegal_moves = ILLEGAL_MOVES
 
@@ -88,7 +101,7 @@ class TestSudoku(unittest.TestCase):
 			for y in range(sudoku.MAX_CELL_VALUE):
 				self.assertEqual(p.get(x, y), sudoku.EMPTY_CELL)
 
-		self.assertEqual(p.get_first_empty_cell(), [0,0])
+		self.assertEqual(p.find_empty_cell(), (0,0))
 		self.assertEqual(len(p.get_all_empty_cells()), sudoku.MAX_CELL_VALUE ** 2)
 
 	def test_class_init_raises_exception(self):
@@ -109,11 +122,65 @@ class TestSudoku(unittest.TestCase):
 		test_value = TEST_PUZZLE[x][y]
 		self.assertNotEqual(test_value, sudoku.EMPTY_CELL) # test data error
 
+		# Clear op
+		num_empty = self.p.num_empty_cells()
 		self.p.clear(x, y)
 		self.assertTrue(self.p.is_empty(x, y))
+		self.assertEqual(num_empty + 1, self.p.num_empty_cells())
+
+		# Set op
 		self.p.set(x, y, test_value)
 		self.assertEqual(self.p.get(x, y), test_value)
 		self.assertFalse(self.p.is_empty(x, y))
+		self.assertEqual(num_empty, self.p.num_empty_cells())
+
+	def test_empty_cells(self):
+		"""
+		Check the methods for getting empty cells
+		"""
+		with self.subTest(f"Basic empty cell count check"):
+			self.assertEqual(len(self.p.get_all_empty_cells()), 50)
+			self.assertEqual(len(self.s.get_all_empty_cells()), 0)
+
+		with self.subTest(f"Empty cells are empty"):
+			for m in self.p.get_all_empty_cells():
+				self.assertEqual(self.p.get(m[0], m[1]), sudoku.EMPTY_CELL)
+
+		with self.subTest(f"find_empty_cell returns all empty cells"):
+			mts = self.p.get_all_empty_cells()
+			for i, mt in enumerate(mts):
+				m = self.p.find_empty_cell()
+				self.assertEqual(self.p.get(m[0], m[1]), sudoku.EMPTY_CELL)
+				self.assertEqual(mt, m)
+				self.p.set(m[0], m[1], self.s.get(m[0], m[1]))
+			self.assertEqual(self.p.num_empty_cells(), 0)
+
+		return
+
+	def test_next_empty_cell(self):
+		"""
+		Test generator function next_empty_cell()
+		"""
+		with self.subTest(f"next_empty_cell returns all empty cells"):
+			mts = [m for m in self.p.next_empty_cell()]
+			self.assertEqual(mts, self.p.get_all_empty_cells())
+
+		with self.subTest(f"next_empty_cell terminates"):
+			i = 0
+			for m in self.p.next_empty_cell():
+				i += 1
+			self.assertEqual(i, 50)
+
+		with self.subTest(f"next_empty_cell can get one cell at a time"):
+			mts = self.p.get_all_empty_cells()
+			self.assertEqual(len(mts), 50)
+
+			mtGen = self.p.next_empty_cell()
+			for m in mts:
+				x = next(mtGen)
+				self.assertEqual(m, x)
+
+		return
 
 	def test_get_values(self):
 		with self.subTest("get_row_values"):
@@ -157,7 +224,7 @@ class TestSudoku(unittest.TestCase):
 
 						with self.subTest(f"Cell {x},{y} -> {vlist}"):
 							for v in vlist:
-								self.assertTrue(self.p.is_legal(x, y, v))
+								self.assertTrue(self.p.is_legal_value(x, y, v))
 
 	def test_legal_move(self):
 		"""
@@ -167,7 +234,7 @@ class TestSudoku(unittest.TestCase):
 			with self.subTest(i=i):
 				m = self.legal_moves[i]
 				self.assertEqual(SOLVED_PUZZLE[m[0]][m[1]], m[2])  # test data error
-				self.assertTrue(self.p.is_legal(m[0], m[1], m[2]))
+				self.assertTrue(self.p.is_legal_value(m[0], m[1], m[2]))
 
 	def test_invalid_move(self):
 		"""
@@ -183,7 +250,7 @@ class TestSudoku(unittest.TestCase):
 		for i in range(len(self.illegal_moves)):
 			with self.subTest(i=i):
 				m = self.illegal_moves[i]
-				self.assertFalse(self.p.is_legal(m[0], m[1], m[2]))
+				self.assertFalse(self.p.is_legal_value(m[0], m[1], m[2]))
 
 	def test_illegal_set(self):
 		"""
@@ -216,24 +283,22 @@ class TestSudoku(unittest.TestCase):
 		"""
 		self.assertFalse(self.p.is_solved())
 
-		s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
-		v = s.get(0, 0)
-		s.clear(0, 0)
-		self.assertFalse(s.is_solved())
+		v = self.s.get(0, 0)
+		self.s.clear(0, 0)
+		self.assertFalse(self.s.is_solved())
 
-		s.set(0, 0, v)
-		self.assertTrue(s.is_solved())
+		self.s.set(0, 0, v)
+		self.assertTrue(self.s.is_solved())
 
 	def test_play_legal_game(self):
 		"""
 		Plays an entire game consisting of only legal moves.
 		"""
 		self.assertFalse(self.p.is_solved()) # test data error
-		s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
-		self.assertTrue(s.is_solved())
+		self.assertTrue(self.s.is_solved())
 
 		for m in self.p.get_all_empty_cells():
-			self.p.set(m[0], m[1], s.get(m[0], m[1]))
+			self.p.set(m[0], m[1], self.s.get(m[0], m[1]))
 		self.assertTrue(self.p.is_solved())
 
 	def test_play_dodgy_game(self):
@@ -252,15 +317,14 @@ class TestSudoku(unittest.TestCase):
 		for m in self.illegal_moves:
 			self.subTest(f"Illegal move {m}")
 			self.assertTrue(len(m) == 3)
-			self.assertFalse(self.p.is_legal(m[0], m[1], m[2]))
+			self.assertFalse(self.p.is_legal_value(m[0], m[1], m[2]))
 			self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
 		self.assertTrue(self.p.is_puzzle_valid())
 
 		# Finish the game
-		s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
 		for m in self.p.get_all_empty_cells():
-			v = s.get(m[0], m[1])
-			if not self.p.is_legal(m[0], m[1], v+1):
+			v = self.s.get(m[0], m[1])
+			if not self.p.is_legal_value(m[0], m[1], v+1):
 				self.assertRaises(ValueError, self.p.set, m[0], m[1], v+1)
 			self.p.set(m[0], m[1], v)
 
@@ -285,6 +349,7 @@ class TestSudoku(unittest.TestCase):
 class TestSudokuConstrained(unittest.TestCase):
 	def setUp(self):
 		self.p = sudoku.SudokuPuzzleConstrained(TEST_PUZZLE)
+		self.s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
 		self.legal_moves = LEGAL_MOVES
 		self.illegal_moves = ILLEGAL_MOVES
 
@@ -354,9 +419,9 @@ class TestSudokuConstrained(unittest.TestCase):
 						else:
 							self.assertTrue(len(vlist) == 1)
 
-						# Unlike the equivalent test in SudokuPuzzle, we don't assertTrue(is_legal) for every value in vlist,
+						# Unlike the equivalent test in SudokuPuzzle, we don't assertTrue(is_legal_value) for every value in vlist,
 						# because it will return False for some values in v when that value is the only option for some other
-						# cell in that row, column, or cage. Which is correct behaviour for is_legal and entirely the point.
+						# cell in that row, column, or cage. Which is correct behaviour for is_legal_value and entirely the point.
 						# Best we can do here is check that the correct answer is always in the possible list.
 						self.assertTrue(SOLVED_PUZZLE[x][y] in vlist)
 		return
@@ -366,9 +431,9 @@ class TestSudokuConstrained(unittest.TestCase):
 		Correctly tell us if a move is legal
 		"""
 		for m in self.legal_moves:
-			with self.subTest(f"Legal move {m} is_legal"):
+			with self.subTest(f"Legal move {m} is_legal_value"):
 				# Expect this to be "legal"
-				self.assertTrue(self.p.is_legal(m[0], m[1], m[2]))
+				self.assertTrue(self.p.is_legal_value(m[0], m[1], m[2]))
 
 		for m in self.legal_moves:
 			with self.subTest(f"Legal move {m} is among allowed values"):
@@ -394,11 +459,10 @@ class TestSudokuConstrained(unittest.TestCase):
 		Plays an entire game consisting of only legal moves.
 		"""
 		self.assertFalse(self.p.is_solved()) # test data error
-		s = sudoku.SudokuPuzzleConstrained(SOLVED_PUZZLE)
-		self.assertTrue(s.is_solved()) # test data error
+		self.assertTrue(self.s.is_solved()) # test data error
 
 		for m in self.p.get_all_empty_cells():
-			self.p.set(m[0], m[1], s.get(m[0], m[1]))
+			self.p.set(m[0], m[1], self.s.get(m[0], m[1]))
 		self.assertTrue(self.p.is_solved())
 
 	def test_play_dodgy_game(self):
@@ -418,17 +482,16 @@ class TestSudokuConstrained(unittest.TestCase):
 		with self.subTest("Illegal moves"):
 			for m in self.illegal_moves:
 				with self.subTest(f"Illegal move: {m}"):
-					self.assertFalse(self.p.is_legal(m[0], m[1], m[2]))
+					self.assertFalse(self.p.is_legal_value(m[0], m[1], m[2]))
 					self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
 			self.assertTrue(self.p.is_puzzle_valid())
 
 		# Finish the game
 		with self.subTest("Finish game"):
-			s = sudoku.SudokuPuzzle(SOLVED_PUZZLE)
 			for m in self.p.get_all_empty_cells():
-				v = s.get(m[0], m[1])
+				v = self.s.get(m[0], m[1])
 				with self.subTest(f"{m}={v}"):
-					if not self.p.is_legal(m[0], m[1], v+1):
+					if not self.p.is_legal_value(m[0], m[1], v+1):
 						self.assertRaises(ValueError, self.p.set, m[0], m[1], v+1)
 					self.p.set(m[0], m[1], v)
 

@@ -41,31 +41,40 @@ def cagexy_to_num(x,y):
 	cage_y = (y // CAGE_SIZE)
 	return (cage_x * CAGE_SIZE) + cage_y
 
+def count_clues(starting_grid):
+	return (MAX_CELL_VALUE * MAX_CELL_VALUE) - sum(x.count(EMPTY_CELL) for x in starting_grid)
+
 class SudokuPuzzle(object):
 	def __init__(self, starting_grid=[]):
 		"""
-		Creates a standard 9x9 puzzle. Will make a copy of the starting_grid
+		Creates a standard 9x9 puzzle. Will make a copy of the starting_grid using
+		`copy.deepcopy` so that changes made by the class don't unexpectedly alter the
+		original puzzle grid. If starting_grid is empty, then builds an empty grid.
 		"""
 		if len(starting_grid) == 0:
 			self.grid = build_empty_grid()
 		else:
+			# Sanity checks on starting_grid
 			if len(starting_grid) != MAX_CELL_VALUE:
 				raise ValueError(f"Unexpected row count {len(starting_grid)} != {MAX_CELL_VALUE}")
-			for x in range(MAX_CELL_VALUE):
-				if len(starting_grid[x]) != MAX_CELL_VALUE:
-					raise ValueError(f"Unexpected column count {len(starting_grid[x])} != {MAX_CELL_VALUE} row {x}")
+
+			for i, row in enumerate(starting_grid):
+				if len(row) != MAX_CELL_VALUE:
+					raise ValueError(f"Unexpected column count in row {i}: {len(row)} != {MAX_CELL_VALUE}")
 			self.grid = copy.deepcopy(starting_grid)
 
-		# Cache the list of empty cells
-		self.get_all_empty_cells(recalculate=True)
+		# We track the number of empty cells remaining
+		self._num_empty_cells = len(self.get_all_empty_cells())
+		return
 
 	def get(self, x, y):
 		"""
-		Returns the cell value at x,y. Returning 0 means no value set.
+		Returns the cell value at x,y. Returning EMPTY_CELL (0) means no value set.
+		TODO: Would it be more Pythonic to use `None`?
 		"""
 		return self.grid[x][y]
 
-	def is_legal(self, x, y, v):
+	def is_legal_value(self, x, y, v):
 		"""
 		Returns true if placing value v at position x,y is legal based on current grid values.
 		Might still be an incorrect move, function is only asserting if it looks legal or not.
@@ -86,10 +95,10 @@ class SudokuPuzzle(object):
 		if v < MIN_CELL_VALUE or v > MAX_CELL_VALUE:
 			raise ValueError(f"Value {v} out of range ({MIN_CELL_VALUE}-{MAX_CELL_VALUE})")
 		
-		if self.is_legal(x, y, v):
+		if self.is_legal_value(x, y, v):
 			if self.grid[x][y] == EMPTY_CELL:
-				self._num_clues += 1
-				self._all_empty_cells.remove([x,y])
+				self._num_empty_cells -= 1
+				assert(self._num_empty_cells >= 0)
 			self.grid[x][y] = v
 		else:
 			raise ValueError(f"Value {v} not allowed at {x},{y} (illegal move)")
@@ -102,9 +111,7 @@ class SudokuPuzzle(object):
 		# OK to "clear" an already empty cell, but it's a no-op
 		if self.grid[x][y] != EMPTY_CELL:
 			self.grid[x][y] = EMPTY_CELL
-			self._num_clues -= 1
-			self._all_empty_cells.append([x,y])
-			self._all_empty_cells.sort()
+			self._num_empty_cells += 1
 		return
 
 	def is_empty(self, x, y):
@@ -118,40 +125,49 @@ class SudokuPuzzle(object):
 		Return the number of empty cells remaining in the puzzle.
 		"""
 		if recalculate:
-			self.get_all_empty_cells(recalculate=True, return_copy=False)
+			self._num_empty_cells = len(self.get_all_empty_cells())
+		return self._num_empty_cells
 
-		return len(self._all_empty_cells)
-
-	def get_all_empty_cells(self, recalculate=False, return_copy=True):
+	def get_all_empty_cells(self):
 		"""
-		Returns a list of 2-tuples that are the position of all empty cells.
+		Returns a list of 2-tuples that are the position of all empty cells. Iterates over
+		entire grid, so is not intended to be called often. If you just want to count empty
+		cells, use `num_empty_cells`, which is cached.
 		"""
-		if recalculate:
-			self._all_empty_cells = []
-			for x in range(MAX_CELL_VALUE):
-				for y in range(MAX_CELL_VALUE):
-					if self.is_empty(x, y):
-						self._all_empty_cells.append([x, y])
-			self._num_clues = (MAX_CELL_VALUE * MAX_CELL_VALUE) - len(self._all_empty_cells)
+		ret = []
+		for i, row in enumerate(self.grid):
+			ret += [(i, j) for j,v in enumerate(self.grid[i]) if v == EMPTY_CELL]
+		return ret
 
-		if return_copy:
-			return copy.deepcopy(self._all_empty_cells)
-		else:
-			return self._all_empty_cells
-
-	def get_first_empty_cell(self, recalculate=False):
+	def find_empty_cell(self):
 		"""
-		Returns the first empty cell that exists in the grid, starting at 0,0
-		and searching along the row first. Returns an empty list if there are no empty
-		cells.
+		Returns the first empty cell that exists in the grid, starting at 0,0 and searching along
+		the row first. Returns an empty tuple if there are no empty cells.
 		"""
-		if recalculate:
-			ret = self.get_all_empty_cells(recalculate=recalculate)
+		for i, row in enumerate(self.grid):
+			try:
+				j = row.index(EMPTY_CELL)
+			except ValueError:
+				continue
+			return (i, j)
+		return ()	
 
-		if self._all_empty_cells:
-			return list(self._all_empty_cells[0])
-		else:
-			return []
+	def next_empty_cell(self, loop_once=True):
+		"""
+		Returns the next empty cell that exists in the grid, starting at 0,0 and searching along 
+		the row first. Returns an empty tuple if there are no empty cells. If you are setting
+		value in every empty cell you find (e.g. in a backtracking algorithm) then it is marginally
+		faster to call next_empty_cell instead of find_empty_cell, because the continuation used here
+		means we don't have to start searching from 0,0 again.
+		"""
+		while self._num_empty_cells > 0:
+			for i, row in enumerate(self.grid):
+				for j, v in enumerate(row):
+					if v == EMPTY_CELL:
+						yield (i, j)
+			if loop_once:
+				break
+		return ()
 
 	def get_possible_values(self, x, y):
 		"""
@@ -301,12 +317,15 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		self.allowed_values_for_cage = [COMPLETE_SET - set(self.get_cage_values(cagenum_to_xy(n)[0], cagenum_to_xy(n)[1], include_empty=False)) for n in range(MAX_CELL_VALUE)]
 		return
 		
-	def is_legal(self, x, y, v):
+	def is_legal_value(self, x, y, v):
 		"""
-		Return True if it is legal to write value v to cell x,y.
-		Can take advantage of the allowed_values
+		Return True if it is legal to write value v to cell x,y. Note that x,y *should*
+		be cleared first, but obviously the curent value is "legal".
+		Can take advantage of the allowed_values_X lists.
 		"""
-		# It's OK to write a value already current
+		# It's OK to write a value already current (and therefore does not exist in possible
+		# values). TODO: Not sure if we need to handle the case where v is different to what
+		# is already there?
 		if self.grid[x][y] == v:
 			return True
 		return v in self.get_possible_values(x, y)
@@ -317,8 +336,11 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		the value v from row x, column y, and cage containing x,y. If this leaves any cell with no
 		possible values, then raises an exception because the move cannot be valid.
 		"""
-		# If cell is *already* set, clear it first. Then set it.
-		if self.grid[x][y] != EMPTY_CELL:
+		# If cell is *already* set, clear it first, to put the old value "v" back into
+		# the list of allowed values. Then set it. Setting to itself is a no-op.
+		if self.grid[x][y] == v:
+			return
+		elif self.grid[x][y] != EMPTY_CELL:
 			self.clear(x, y)
 		super().set(x, y, v)
 
@@ -349,42 +371,35 @@ class SudokuPuzzleConstrained(SudokuPuzzle):
 		self.allowed_values_for_cage[cagexy_to_num(x,y)].add(v)
 		return
 
+	def next_empty_cell(self, loop_once=True):
+		"""
+		Returns the next empty cell with fewer possible values than `with_max_possibilities`. 
+		Returns an empty tuple if there are no empty cells matching that criteria. 
+		"""
+		max_possibilities = 1
+		while self._num_empty_cells > 0:
+			for i, row in enumerate(self.grid):
+				for j, v in enumerate(row):
+					if v == EMPTY_CELL and len(self.get_possible_values(i,j)) <= max_possibilities:
+						yield (i, j)
+			max_possibilities += 1
+			if loop_once and max_possibilities > MAX_CELL_VALUE:
+				break
+		return ()
+
+
 	def get_possible_values(self, x, y):
 		"""
 		Returns the current set of possible values at x, y. This is based on the intersection
 		of the sets of allowed values for the same row, column and cage. If there is a value
-		in the cell, then it is the onlt allowed value.
+		in the cell, then it is the only allowed value.
 		"""
-		# TODO: This function should be consistent with is_legal()
+		# TODO: This function should be consistent with is_legal_value()
 
 		if self.grid[x][y] == EMPTY_CELL:
 			return self.allowed_values_for_row[x] & self.allowed_values_for_col[y] & self.allowed_values_for_cage[cagexy_to_num(x,y)]
 		else:
 			return set([self.grid[x][y]])
-
-	def update_using_constraints(self):
-		"""
-		Loops through all the empty cells and checks what allowed values are possible there. When it
-		finds a cell with a single allowed value, will set the cell to that value. Continues until
-		there are either no empty cells left, or it's no longer possible to update a cell based on
-		single allowed values remaining.
-
-		Returns number of cells updated.
-		"""
-		num_updated = 1
-		total_updated = 0
-		while num_updated > 0:
-			num_updated = 0
-			m = self.get_first_empty_cell()
-			if len(m) < 1:
-				break
-			values = self.get_possible_values(m[0], m[1])
-			if len(values) == 1:
-				(v,) = values
-				self.set(m[0], m[1], v)
-				num_updated += 1
-			total_updated += num_updated
-		return num_updated
 
 	def as_html(self):
 		"""
