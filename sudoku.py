@@ -1,293 +1,124 @@
 # sudoku class
 #
-# Class to manage a Sudoku Puzzle. Only tested with 9x9 puzzle grids.
+# Class to manage a Sudoku Puzzle. Builds in ConstraintPuzzle
+# from puzzlegrid package.
 #
 
-import copy
+import puzzlegrid as pg
 
-CAGE_SIZE = 3
-MIN_CELL_VALUE = 1
-MAX_CELL_VALUE = CAGE_SIZE ** 2
-EMPTY_CELL = 0
-COMPLETE_SET = set(range(MIN_CELL_VALUE, MAX_CELL_VALUE+1))
+DEFAULT_BOX_SIZE = 3
 
-def build_empty_grid():
-	"""
-	Builds a 9x9 matrix, with each cell set to 0
-	"""
-	ret = [[] for x in range(MAX_CELL_VALUE)]
-	for x in range(MAX_CELL_VALUE):
-		ret[x] = [0 for y in range(MAX_CELL_VALUE)]
-
-	return ret
-
-def cagenum_to_xy(i):
-	"""
-	Take the "cages" to be numbered from 0 to 8, starting with 0 in the top left,
-	then running left to right and down the rows so that 8 is bottom right. Cage
-	0 (0,0)   1 (0, 3)   2 (0, 6)
-	3 (3,0)   4 (3, 3)   5 (3, 6)
-	6 (6,0)   7 (6, 3)   8 (6, 6)
-	"""
-	x = (i // 3) * CAGE_SIZE
-	y = (i % 3) * CAGE_SIZE
-	return [x, y]
-
-def cagexy_to_num(x,y):
-	"""
-	Given a call at x,y return what the sequential cage number is.
-	"""
-	cage_x = (x // CAGE_SIZE)
-	cage_y = (y // CAGE_SIZE)
-	return (cage_x * CAGE_SIZE) + cage_y
-
-def count_clues(starting_grid):
-	return (MAX_CELL_VALUE * MAX_CELL_VALUE) - sum(x.count(EMPTY_CELL) for x in starting_grid)
-
-class SudokuPuzzle(object):
-	def __init__(self, starting_grid=[]):
+class SudokuPuzzle(pg.ConstraintPuzzle):
+	def __init__(self, box_size=DEFAULT_BOX_SIZE):
 		"""
-		Creates a standard 9x9 puzzle. Will make a copy of the starting_grid using
-		`copy.deepcopy` so that changes made by the class don't unexpectedly alter the
-		original puzzle grid. If starting_grid is empty, then builds an empty grid.
+		Creates a Sudoku puzzle grid. The size to pass is the `box_size` which is 3 for the
+		standard 9x9 puzzle, because the "boxes" are 3x3.
 		"""
-		if len(starting_grid) == 0:
-			self.grid = build_empty_grid()
-		else:
-			# Sanity checks on starting_grid
-			if len(starting_grid) != MAX_CELL_VALUE:
-				raise ValueError(f"Unexpected row count {len(starting_grid)} != {MAX_CELL_VALUE}")
+		grid_size = box_size * box_size
+		super().__init__(grid_size=grid_size)
+		self._box_size = box_size
 
-			for i, row in enumerate(starting_grid):
-				if len(row) != MAX_CELL_VALUE:
-					raise ValueError(f"Unexpected column count in row {i}: {len(row)} != {MAX_CELL_VALUE}")
-			self.grid = copy.deepcopy(starting_grid)
-
-		# We track the number of empty cells remaining
-		self._num_empty_cells = len(self.get_all_empty_cells())
+		# Sudoku puzzles have an extra constraint -- boxes cannot contain repeated values
+		self._allowed_values_for_box = [set(self._complete_set) for i in range(grid_size)]
 		return
 
-	def get(self, x, y):
+	def box_num_to_xy(self, i):
 		"""
-		Returns the cell value at x,y. Returning EMPTY_CELL (0) means no value set.
-		TODO: Would it be more Pythonic to use `None`?
+		Take the "boxes" to be numbered from 0 to 8, starting with 0 in the top left,
+		then running left to right and down the rows so that 8 is bottom right:
+		0 (0,0)   1 (0, 3)   2 (0, 6)
+		3 (3,0)   4 (3, 3)   5 (3, 6)
+		6 (6,0)   7 (6, 3)   8 (6, 6)
 		"""
-		return self.grid[x][y]
+		x = (i // 3) * self._box_size
+		y = (i % 3) * self._box_size
+		return (x, y)
 
-	def is_legal_value(self, x, y, v):
+	def box_xy_to_num(self, x, y):
 		"""
-		Returns true if placing value v at position x,y is legal based on current grid values.
-		Might still be an incorrect move, function is only asserting if it looks legal or not.
-		Does not actually write value v to x,y -- use set() for that.
+		Given a call at x,y return what the sequential box number is.
 		"""
-
-		# Replaying an already played move is allowed
-		if self.grid[x][y] == v:
-			return True
-
-		# Check that value v is not already in row x, or column y, or cage containing x,y
-		return (v not in self.get_row_values(x)) and (v not in self.get_column_values(y)) and (v not in self.get_cage_values(x, y))
+		box_x = (x // self._box_size)
+		box_y = (y // self._box_size)
+		return (box_x * self._box_size) + box_y
 
 	def set(self, x, y, v):
 		"""
-		Sets the cell at x,y to value v. Will raise an exception if this move is illegal.
+		Calls the parent (ConstraintPuzzle) set method first, then updates our additional
+		box constraint.
 		"""
-		if v < MIN_CELL_VALUE or v > MAX_CELL_VALUE:
-			raise ValueError(f"Value {v} out of range ({MIN_CELL_VALUE}-{MAX_CELL_VALUE})")
-		
-		if self.is_legal_value(x, y, v):
-			if self.grid[x][y] == EMPTY_CELL:
-				self._num_empty_cells -= 1
-				assert(self._num_empty_cells >= 0)
-			self.grid[x][y] = v
-		else:
-			raise ValueError(f"Value {v} not allowed at {x},{y} (illegal move)")
+		if self._grid[x][y] == v:
+			return
+		super().set(x, y, v)
+
+		# Update box constraints
+		self._allowed_values_for_box[self.box_xy_to_num(x,y)].remove(v)
 		return
-		
+
 	def clear(self, x, y):
 		"""
-		Clears the value for a cell at x,y (sets to 0)
+		Clears the value at x,y. Will update the box constraints.
 		"""
-		# OK to "clear" an already empty cell, but it's a no-op
-		if self.grid[x][y] != EMPTY_CELL:
-			self.grid[x][y] = EMPTY_CELL
-			self._num_empty_cells += 1
+		if not self._grid[x][y]:
+			return
+
+		# Stash previous value, then clear cell
+		prev = self._grid[x][y]
+		super().clear(x, y)
+
+		# This value available again for this box
+		self._allowed_values_for_box[self.box_xy_to_num(x,y)].add(prev)
 		return
 
-	def is_empty(self, x, y):
+	def get_box_values(self, x, y):
 		"""
-		Returns True if the cell is empty (equal to 0)
+		Return the list of values from the box containing cell x,y as a list.
 		"""
-		return self.grid[x][y] == EMPTY_CELL
+		box_x = (x // self._box_size) * self._box_size
+		box_y = (y // self._box_size) * self._box_size
+		values = [i[box_y:box_y+self._box_size] for i in self._grid[box_x:box_x+self._box_size]]
+		return [i for sublist in values for i in sublist if i]
 
-	def num_empty_cells(self, recalculate=False):
+	def get_allowed_values(self, x, y):
 		"""
-		Return the number of empty cells remaining in the puzzle.
+		Returns the current set of possible values at x, y. This is based on the intersection
+		of the sets of allowed values for the same row, column and box. If there is a value
+		in the cell, then it is the only allowed value.
 		"""
-		if recalculate:
-			self._num_empty_cells = len(self.get_all_empty_cells())
-		return self._num_empty_cells
-
-	def get_all_empty_cells(self):
-		"""
-		Returns a list of 2-tuples that are the position of all empty cells. Iterates over
-		entire grid, so is not intended to be called often. If you just want to count empty
-		cells, use `num_empty_cells`, which is cached.
-		"""
-		ret = []
-		for i, row in enumerate(self.grid):
-			ret += [(i, j) for j,v in enumerate(self.grid[i]) if v == EMPTY_CELL]
-		return ret
-
-	def find_empty_cell(self):
-		"""
-		Returns the first empty cell that exists in the grid, starting at 0,0 and searching along
-		the row first. Returns an empty tuple if there are no empty cells.
-		"""
-		for i, row in enumerate(self.grid):
-			try:
-				j = row.index(EMPTY_CELL)
-			except ValueError:
-				continue
-			return (i, j)
-		return ()	
-
-	def next_empty_cell(self, loop_once=True):
-		"""
-		Returns the next empty cell that exists in the grid, starting at 0,0 and searching along 
-		the row first. Returns an empty tuple if there are no empty cells. If you are setting
-		value in every empty cell you find (e.g. in a backtracking algorithm) then it is marginally
-		faster to call next_empty_cell instead of find_empty_cell, because the continuation used here
-		means we don't have to start searching from 0,0 again.
-		"""
-		while self._num_empty_cells > 0:
-			for i, row in enumerate(self.grid):
-				for j, v in enumerate(row):
-					if v == EMPTY_CELL:
-						yield (i, j)
-			if loop_once:
-				break
-		return ()
-
-	def get_possible_values(self, x, y):
-		"""
-		Returns the set of values that are legal for a cell, given the current state of the
-		puzzle grid. The values are only legal for the current state. Should never return an
-		empty list -- if the cell is not empty will return simply the value placed there.
-		"""
-
-		if self.grid[x][y] != EMPTY_CELL:
-			return set([self.grid[x][y]])
-
-		# Get the set of all values that are NOT legal because they exist in the row/col/cage
-		used_values = set(self.get_row_values(x, include_empty=False) 
-						   + self.get_column_values(y, include_empty=False)
-						   + self.get_cage_values(x, y, include_empty=False))
-
-		# Set of all possible values for an empty cell is in COMPLETE_SET
-		return COMPLETE_SET - used_values
-
-	def get_row_values(self, x, include_empty=True):
-		"""
-		Return the list of values from row x as a list
-		"""
-		if include_empty:
-			return list(self.grid[x])
+		if self._grid[x][y]:
+			return set([self._grid[x][y]])
 		else:
-			return [i for i in self.grid[x] if i != EMPTY_CELL]
-
-	def get_column_values(self, y, include_empty=True):
-		"""
-		Return the list of values from column y as a list
-		"""
-		if include_empty:
-			return [i[y] for i in self.grid]
-		else:
-			return [i[y] for i in self.grid if i[y] != EMPTY_CELL]
-
-	def get_cage_values(self, x, y, include_empty=True):
-		"""
-		Return the list of values from the cage containing cell x,y as a list
-		"""
-		cage_x = (x // CAGE_SIZE) * CAGE_SIZE
-		cage_y = (y // CAGE_SIZE) * CAGE_SIZE
-		values = [i[cage_y:cage_y+CAGE_SIZE] for i in self.grid[cage_x:cage_x+CAGE_SIZE]]
-
-		if include_empty:
-			return [i for sublist in values for i in sublist]
-		else:
-			return [i for sublist in values for i in sublist if i != EMPTY_CELL ]
+			return super().get_allowed_values(x, y) & self._allowed_values_for_box[self.box_xy_to_num(x,y)]
 
 	def is_puzzle_valid(self):
 		"""
-		Returns true if the puzzle is still valid (i.e. obeys the rules). Empty cells are allowed.
+		Returns True if the puzzle is still valid (i.e. obeys the rules). Empty cells are allowed.
+		We only need to check the box constraint (parent class does rows and columns already).
+		This method should *always* return True, since it should not be possible to put a puzzle
+		into an invalid state (not without accessing self._grid directly...)
 		"""
-
-		# Does each row and column contain any repeated values?
-		for x in range(MAX_CELL_VALUE):
-			values = self.get_row_values(x, include_empty=False)
+		# Does any box contain repeated values?
+		for i in range(self._max_cell_value):
+			pos = self.box_num_to_xy(i)
+			values = self.get_box_values(pos[0], pos[1])
 			if len(values) != len(set(values)):
 				return False
 
-		for y in range(MAX_CELL_VALUE):
-			values = self.get_column_values(y, include_empty=False)
-			if len(values) != len(set(values)):
-				return False
+		return super().is_puzzle_valid()
 
-		# Does any cage contain repeated values?
-		for i in range(MAX_CELL_VALUE):
-			pos = cagenum_to_xy(i)
-			values = self.get_cage_values(pos[0], pos[1], include_empty=False)
-			if len(values) != len(set(values)):
-				return False
-
-		return True
-
-	def is_solved(self):
+	def as_html(self, show_possibilities=0):
 		"""
-		Returns true if the puzzle is valid and no empty cells are left.
-		"""
-
-		# A solved solution is also valid, and has no empty cells left
-		if not self.is_puzzle_valid():
-			return False
-		if self.num_empty_cells() > 0:
-			return False
-
-		# Does each row and column contain all required values and no duplicates?
-		looks_valid = True
-		for x in range(MAX_CELL_VALUE):
-			values = set(self.get_row_values(x))
-			if values != COMPLETE_SET:
-				looks_valid = False
-
-		for y in range(MAX_CELL_VALUE):
-			values = set(self.get_column_values(y))
-			if values != COMPLETE_SET:
-				looks_valid = False
-
-		# Does each cage have all required values and no duplicates?
-		for i in range(MAX_CELL_VALUE):
-			pos = cagenum_to_xy(i)
-			values = set(self.get_cage_values(pos[0], pos[1]))
-			if values != COMPLETE_SET:
-				looks_valid = False
-
-		return looks_valid
-
-	def __str__(self):
-		return "\n".join(" ".join(map(str, sl)) for sl in self.grid)
-
-	def as_html(self):
-		"""
-		Renders the current puzzle in simple HTML.
+		Renders the current puzzle in simple HTML. If show_possibilities > 0, then cells
+		with fewer possible values than that will show the possible values.
 		"""
 		data = []
-		for x in range(MAX_CELL_VALUE):
+		for x in range(self._max_cell_value):
 			row_to_show = []
-			for y in range(MAX_CELL_VALUE):
+			for y in range(self._max_cell_value):
 				if not self.is_empty(x, y):
 					row_to_show.append(self.get(x, y))
+				elif len(self.get_allowed_values(x, y)) < show_possibilities:
+					row_to_show.append(self.get_allowed_values(x, y))
 				else:
 					row_to_show.append(' ')
 			data.append(row_to_show)
@@ -296,131 +127,6 @@ class SudokuPuzzle(object):
 		if self.is_solved():
 			css_class += " sudoku-solved"
 
-		ret = '<table class="{}"><tr>{}</tr></table>'.format(css_class, '</tr><tr>'.join('<td>{}</td>'.format('</td><td>'.join(str(_) for _ in row)) for row in data))
-		return ret
-
-class SudokuPuzzleConstrained(SudokuPuzzle):
-	def __init__(self, starting_grid=[]):
-		"""
-		Creates the standard puzzle grid (see SudokuPuzzle class), and adds a possibility
-		matrix that will act as our Constraint check.
-		"""
-		super().__init__(starting_grid=starting_grid)
-		self.init_contraints()
-
-	def init_contraints(self):
-		"""
-		Initializes the possible values for each row, each column, and each cage.
-		"""
-		self.allowed_values_for_row = [COMPLETE_SET - set(self.get_row_values(x, include_empty=False)) for x in range(MAX_CELL_VALUE)]
-		self.allowed_values_for_col = [COMPLETE_SET - set(self.get_column_values(y, include_empty=False)) for y in range(MAX_CELL_VALUE)]
-		self.allowed_values_for_cage = [COMPLETE_SET - set(self.get_cage_values(cagenum_to_xy(n)[0], cagenum_to_xy(n)[1], include_empty=False)) for n in range(MAX_CELL_VALUE)]
-		return
-		
-	def is_legal_value(self, x, y, v):
-		"""
-		Return True if it is legal to write value v to cell x,y. Note that x,y *should*
-		be cleared first, but obviously the curent value is "legal".
-		Can take advantage of the allowed_values_X lists.
-		"""
-		# It's OK to write a value already current (and therefore does not exist in possible
-		# values). TODO: Not sure if we need to handle the case where v is different to what
-		# is already there?
-		if self.grid[x][y] == v:
-			return True
-		return v in self.get_possible_values(x, y)
-
-	def set(self, x, y, v):
-		"""
-		After setting the value v at position x,y, also updates the possibility matrix to exclude
-		the value v from row x, column y, and cage containing x,y. If this leaves any cell with no
-		possible values, then raises an exception because the move cannot be valid.
-		"""
-		# If cell is *already* set, clear it first, to put the old value "v" back into
-		# the list of allowed values. Then set it. Setting to itself is a no-op.
-		if self.grid[x][y] == v:
-			return
-		elif self.grid[x][y] != EMPTY_CELL:
-			self.clear(x, y)
-		super().set(x, y, v)
-
-		# Exclude from row x and column y. Don't bother checking to see if it's in the set --
-		# if it is NOT then it is an error to write the value to this cell anyway
-		self.allowed_values_for_row[x].remove(v)
-		self.allowed_values_for_col[y].remove(v)
-		self.allowed_values_for_cage[cagexy_to_num(x,y)].remove(v)
-		return
-
-	def clear(self, x, y):
-		"""
-		Clearing is now a bit more complicated. As well as clearing the value from the cell,
-		we need to update the possibility matrix with allowed values for the cleared cell,
-		and may need to put the value "v" into the possible values for that row, column, or cage.
-		"""
-
-		# Is OK to "clear" an empty cell. Otherwise fetch the current value, then call super
-		# to clear the cell.
-		if self.grid[x][y] == EMPTY_CELL:
-			return
-		v = self.grid[x][y]
-		super().clear(x, y)
-
-		# This value available again for this row, column, and cage
-		self.allowed_values_for_row[x].add(v)
-		self.allowed_values_for_col[y].add(v)
-		self.allowed_values_for_cage[cagexy_to_num(x,y)].add(v)
-		return
-
-	def next_empty_cell(self, loop_once=True):
-		"""
-		Returns the next empty cell with fewer possible values than `with_max_possibilities`. 
-		Returns an empty tuple if there are no empty cells matching that criteria. 
-		"""
-		max_possibilities = 1
-		while self._num_empty_cells > 0:
-			for i, row in enumerate(self.grid):
-				for j, v in enumerate(row):
-					if v == EMPTY_CELL and len(self.get_possible_values(i,j)) <= max_possibilities:
-						yield (i, j)
-			max_possibilities += 1
-			if loop_once and max_possibilities > MAX_CELL_VALUE:
-				break
-		return ()
-
-
-	def get_possible_values(self, x, y):
-		"""
-		Returns the current set of possible values at x, y. This is based on the intersection
-		of the sets of allowed values for the same row, column and cage. If there is a value
-		in the cell, then it is the only allowed value.
-		"""
-		# TODO: This function should be consistent with is_legal_value()
-
-		if self.grid[x][y] == EMPTY_CELL:
-			return self.allowed_values_for_row[x] & self.allowed_values_for_col[y] & self.allowed_values_for_cage[cagexy_to_num(x,y)]
-		else:
-			return set([self.grid[x][y]])
-
-	def as_html(self):
-		"""
-		Renders the current puzzle in simple HTML, showing possible values.
-		"""
-		data = []
-		for x in range(MAX_CELL_VALUE):
-			row_to_show = []
-			for y in range(MAX_CELL_VALUE):
-				if not self.is_empty(x, y):
-					row_to_show.append(self.get(x, y))
-				elif len(self.possibility_matrix[x][y]) <= 3:
-					row_to_show.append(self.possibility_matrix[x][y])
-				else:
-					row_to_show.append(' ')
-			data.append(row_to_show)
-
-		css_class ="sudoku sudoku-possibles"
-		if self.is_solved():
-			css_class += " sudoku-solved"
-			
 		ret = '<table class="{}"><tr>{}</tr></table>'.format(css_class, '</tr><tr>'.join('<td>{}</td>'.format('</td><td>'.join(str(_) for _ in row)) for row in data))
 		return ret
 
@@ -660,6 +366,5 @@ SAMPLE_PUZZLES = [
 		  	[0, 4, 0, 0, 0, 0, 0, 0, 7],
 		  	[0, 0, 7, 0, 0, 0, 3, 0, 0]
 	  	]
-	},
-]
+	}]
 
