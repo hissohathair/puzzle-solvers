@@ -32,8 +32,7 @@ def solve_using_backtracking(puzzle):
 
 def play_sudoku(i=0, use_class=sudoku.SudokuPuzzle):
     p = use_class()
-    p.init_puzzle(sudoku.SAMPLE_PUZZLES[i]["puzzle"])
-    print(sudoku.SAMPLE_PUZZLES[i]["label"])
+    p.init_puzzle('4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......')
     print(p)
 
     solve_using_backtracking(p)
