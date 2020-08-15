@@ -143,6 +143,78 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         return ret
 
 
+SOLVERS = ['constraintpropogation', 'backtracking']
+
+
+class SudokuSolver(pg.ConstraintSolver):
+    def __init__(self, puzzle, method='backtracking'):
+        """
+        Initialize SudokuSolver, and optionally nominate preferred solution
+        algorithm. The support algorithms are:
+            - backtracking: Simple back tracking with constraint propogation
+        """
+        super().__init__(puzzle)
+        if method == 'backtracking':
+            self._solver = self.solve_backtracking
+        elif method == 'constraintpropogation':
+            self._solver = self.solve_constraintpropogation
+        else:
+            raise ValueError(f"Unknown method {method}")
+        return
+
+    def solve(self):
+        """
+        Calls a particular solving method selected when class instance was
+        initialized.
+        """
+        return self._solver()
+
+    def solve_backtracking(self):
+        """
+        Implements a simple "naive" back tracking solution for SudokuPuzzle.
+        It's naive in the sense that it doesn't optimise its search for the
+        next cell, just goes through from top left to bottom right.
+        """
+        p = self._puzzle
+        if p.num_empty_cells() == 0:
+            return True
+
+        x, y = p.find_empty_cell()
+        for val in p.get_allowed_values(x, y):
+            p.set(x, y, val)
+            if self.solve():
+                return True
+            else:
+                p.clear(x, y)
+        return False
+
+    def solve_constraintpropogation(self):
+        """
+        Implements back tracking solution while taking advantage of
+        constraint propogation.
+        """
+        p = self._puzzle
+        if p.num_empty_cells() <= 0:
+            return True
+
+        # Generator function will return cells with only 1 possible value
+        # first, then 2, and so on...
+        mtGen = p.next_best_empty_cell()
+        try:
+            x, y = next(mtGen)
+        except StopIteration:
+            return True
+
+        for val in p.get_allowed_values(x, y):
+            p.set(x, y, val)
+            if self.solve_constraintpropogation():
+                return True
+            else:
+                p.clear(x, y)
+
+        return False
+
+
 # Some puzzles for testing
 SAMPLE_PUZZLES = [
     {

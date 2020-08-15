@@ -1,6 +1,7 @@
 # test
 
 import unittest
+import puzzlegrid as pg
 import sudoku
 
 BOX_SIZE = 3
@@ -356,8 +357,65 @@ class TestSudoku(unittest.TestCase):
         """
         Just tests that we get *some* kind of string. Also tests as_html
         """
-        self.assertTrue(len(self.p.__str__()) > 160)
+        self.assertTrue(len(self.p.__str__()) >= 81)
         self.assertTrue(len(self.p.as_html()) > 900)
+
+
+class TestSolver(unittest.TestCase):
+    """Test cases for SudokuSolver"""
+
+    def setUp(self):
+        """Handy to have an unsolved (p) and already solved puzzle (s) for later tests"""
+        self.p = sudoku.SudokuPuzzle(BOX_SIZE)
+        self.p.init_puzzle(TEST_PUZZLE)
+
+        self.s = sudoku.SudokuPuzzle(BOX_SIZE)
+        self.s.init_puzzle(SOLVED_PUZZLE)
+        return
+
+    def test_backtracking(self):
+        """Test the backtracking solution (default)"""
+        solver = sudoku.SudokuSolver(self.p)
+        self.assertTrue(isinstance(solver, pg.ConstraintSolver))
+        self.assertTrue(solver.solve())
+        self.assertTrue(solver.is_solved())
+
+    def test_all_solvers(self):
+        """Test that all available solvers are supported"""
+        for x in sudoku.SOLVERS:
+            p = sudoku.SudokuPuzzle()
+            p.init_puzzle(TEST_PUZZLE)
+            solver = sudoku.SudokuSolver(p, method=x)
+            with self.subTest(f"Method {x}"):
+                self.assertTrue(solver.solve())
+                self.assertTrue(solver.is_solved())
+        return
+
+
+class TestPuzzleTester(unittest.TestCase):
+    def setUp(self):
+        self.include_levels = ['Kids', 'Easy', 'Moderate', 'Hard']
+        self.test_cases = [x for x in sudoku.SAMPLE_PUZZLES if x['level'] in self.include_levels]
+        self.pt = pg.PuzzleTester(puzzle_class=sudoku.SudokuPuzzle)
+        self.pt.add_testcases(self.test_cases)
+        return
+
+    def test_solver(self):
+        p = sudoku.SudokuPuzzle()
+        s = sudoku.SudokuSolver(p, method='constraintpropogation')
+
+        # Single test case
+        self.assertTrue(self.pt.run_single_test(self.test_cases[0], s))
+
+        # All test cases - solver 1
+        self.assertEqual(8, self.pt.num_testcases())
+        self.assertEqual(8, self.pt.run_tests(s, 'unittest1'))
+
+        # All test cases - solver 2
+        s = sudoku.SudokuSolver(p, method='backtracking')
+        self.assertEqual(8, self.pt.run_tests(s, 'unittest2'))
+        # print(self.pt.get_test_results())
+        return
 
 
 if __name__ == "__main__":

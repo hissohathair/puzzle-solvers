@@ -4,6 +4,9 @@
 # (e.g. sudoku; kenken)
 #
 
+import copy
+import timeit
+
 DEFAULT_PUZZLE_SIZE = 9
 MAX_PUZZLE_SIZE = 25
 MIN_PUZZLE_SIZE = 1
@@ -24,13 +27,74 @@ def build_empty_grid(grid_size):
     return ret
 
 
+def char2int(c):
+    """
+    Convert character `c` to an int representation:
+        - 1-9   Converted to int
+        - A-Z   Converted to int where A=10, B=11, etc.
+        - 0     Converted to EMPTY_CELL
+        - . or - also converted to EMPTY_CELL
+    """
+    if c == "." or c == "-" or c == "0":
+        return EMPTY_CELL
+    elif c >= "1" and c <= "9":
+        return int(c)
+    elif c >= "A" and c <= "Z":
+        return 10 + ord(c) - ord("A")
+    else:
+        raise ValueError(f"Unable to convert {c} to int")
+    return EMPTY_CELL
+
+
+def int2char(i):
+    """
+    Given an integer from 1..MAX_PUZZLE_SIZE return a corresponding
+    "digit string":
+        - 1-9   Returned as string
+        - 0     Converted to "."
+        - 10+   Converted to A..Z (10=A; 11=B; etc.)
+    """
+    if not i:
+        return "."
+    elif i >= 1 and i <= 9:
+        return str(i)
+    elif i >= 10 and i <= MAX_PUZZLE_SIZE:
+        return chr(65 - 10 + i)
+    else:
+        raise ValueError(f"Unable to represent {i} as valid character")
+    return " "
+
+
+def count_clues(puzzle_grid):
+    if isinstance(puzzle_grid, list):
+        return sum([1 for sublist in puzzle_grid for i in sublist if i])
+    else:
+        return len(puzzle_grid) - puzzle_grid.count(".")
+
+
+def from_file(filename, level="(not set)"):
+    """
+    Load test cases from file, return as list of dicts
+    """
+    ret = []
+    i = 0
+    with open(filename) as f:
+        for line in f:
+            i += 1
+            tc = {'puzzle': line.rstrip(), 'label': f"{filename}:{i}", 'level': level}
+            ret.append(tc)
+    return ret
+
+
 class ConstraintPuzzle(object):
     def __init__(self, grid_size=DEFAULT_PUZZLE_SIZE):
         """
         Creates a puzzle grid, `grid_size` X `grid_size` (default 9).
         """
         if grid_size < MIN_PUZZLE_SIZE or grid_size > MAX_PUZZLE_SIZE:
-            raise ValueError(f"grid_size={grid_size} outside allowed ranage [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]")
+            raise ValueError(
+                f"grid_size={grid_size} outside allowed ranage [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]"
+            )
 
         # Basic grid
         self._max_cell_value = grid_size
@@ -55,14 +119,41 @@ class ConstraintPuzzle(object):
 
     def init_puzzle(self, starting_grid):
         """
+        Initializes a puzzle grid based on contents of `starting_grid` which
+        can be either a string or 2D array (list of lists of ints).
+        """
+        if isinstance(starting_grid, list):
+            self.init_puzzle_from_grid(starting_grid)
+        else:
+            self.init_puzzle_from_str(starting_grid)
+        return
+
+    def init_puzzle_from_str(self, starting_grid):
+        """
+        Initializes a puzzle grid from a flat string representation. For
+        example: '89.4...5614.35..9.......8..9.....'. Will clear the current
+        grid.
+        """
+        self.clear_all()
+
+        s = starting_grid.rstrip()  # convenient to strip trailing whitespace
+        if len(s) != self.num_cells():
+            raise ValueError(f"starting_grid needs {self.num_cells()}, got {len(s)}")
+
+        for i, ch in enumerate(s):
+            v = char2int(ch)
+            if v:
+                self.set(i // self._max_cell_value, i % self._max_cell_value, v)
+
+        return
+
+    def init_puzzle_from_grid(self, starting_grid):
+        """
         Initializes a puzzle grid to the 2D array passed in `grid`. Will clear
         the current grid. Raises ValueError exception if the new starting_grid
         is the wrong size, or violates a constraint.
         """
-        # First clear the current grid
-        for x in range(self._max_cell_value):
-            for y in range(self._max_cell_value):
-                self.clear(x, y)
+        self.clear_all()
 
         # Check that new grid is correct number of rows
         if len(starting_grid) != self._max_cell_value:
@@ -150,6 +241,15 @@ class ConstraintPuzzle(object):
         self._allowed_values_for_col[y].add(prev)
         return
 
+    def clear_all(self):
+        """
+        Clears the entire puzzle grid.
+        """
+        for x in range(self._max_cell_value):
+            for y in range(self._max_cell_value):
+                self.clear(x, y)
+        return
+
     def is_empty(self, x, y):
         """
         Returns True if the cell is empty
@@ -189,7 +289,10 @@ class ConstraintPuzzle(object):
         while max_possibilities <= self._max_cell_value:
             for i, row in enumerate(self._grid):
                 for j, v in enumerate(row):
-                    if not v and len(self.get_allowed_values(i, j)) <= max_possibilities:
+                    if (
+                        not v
+                        and len(self.get_allowed_values(i, j)) <= max_possibilities
+                    ):
                         yield (i, j)
             max_possibilities += 1
         return ()
@@ -269,6 +372,155 @@ class ConstraintPuzzle(object):
         """
         return self.is_puzzle_valid() and self.num_empty_cells() == 0
 
-    def __str__(self):
+    def as_grid(self):
         blurb = [["-" if v is None else v for v in row] for row in self._grid]
         return "\n".join(" ".join(map(str, sl)) for sl in blurb)
+
+    def __str__(self):
+        return "".join(
+            [int2char(i) if i else "." for sublist in self._grid for i in sublist]
+        )
+
+
+class ConstraintSolver(object):
+    def __init__(self, puzzle=None):
+        """
+        Creates a solver for a ConstraintPuzzle. This is a base class
+        intended to be inherited from later by specific puzzle solvers.
+        If no puzzle to solve is passed, an empty one is created.
+        """
+        if not puzzle:
+            puzzle = ConstraintPuzzle()
+
+        if isinstance(puzzle, ConstraintPuzzle):
+            self._puzzle = puzzle
+            self.original = copy.deepcopy(puzzle)
+        else:
+            raise TypeError("Parameter puzzle expected to be a ConstraintPuzzle")
+        return
+
+    def reset(self, puzzle=None):
+        """
+        Puts the puzzle back to its original state so that solution can be
+        run again. Useful for running solve() repeatedly for timing runs.
+        If another puzzle is passed, will use the new puzzle instead.
+        """
+        if puzzle:
+            self._puzzle = puzzle
+            self.original = copy.deepcopy(puzzle)
+        else:
+            self._puzzle = copy.deepcopy(self.original)
+        return
+
+    def solve(self):
+        """
+        Virtual method to call when ready to solve puzzle. Return True if
+        solved, False if not able to solve.
+        """
+        raise NotImplementedError("solve() should be implemented by child class")
+
+    def is_solved(self):
+        """
+        Returns True if the puzzle passed to this class on init is now
+        solved.
+        """
+        return self._puzzle.is_solved()
+
+
+class PuzzleTester(object):
+    """Track puzzle benchmarking stats"""
+
+    def __init__(self, puzzle_class=ConstraintPuzzle, test_samples=1):
+        self._puzzle_class = puzzle_class
+        self._test_samples = test_samples
+        self._test_cases = []
+        self._rkeys = ["label", "level", "starting_clues"]
+        self._results = {}
+        for k in self._rkeys:
+            self._results[k] = []
+        return
+
+    def num_testcases(self):
+        """
+        Return the number of test cases added so far.
+        """
+        return len(self._test_cases)
+
+    def add_testcases(self, test_cases):
+        """
+        Initialize class to start tracking a set of test puzzle cases.
+        Parameter `test_cases` is expected to be a list of dictionary
+        objects with the follow keys in each dict:
+            - 'label'   Name of test case
+            - 'level'   Difficulty of test case
+            - 'puzzle'  Starting puzzle grid (either a string or 2D array)
+        Only 'puzzle' is required, the others will be auto-generated if missing
+        """
+        if not isinstance(test_cases, list):
+            raise ValueError("Expecting a list of dicts (not a list)")
+        elif not isinstance(test_cases[0], dict):
+            raise ValueError("Expecting a list of dicts (is a list, not of dicts")
+
+        # This structure used to keep all test cases
+        self._test_cases += test_cases
+
+        # This structure used to track test results for different solvers
+        for i, case in enumerate(test_cases):
+            if "label" not in case:
+                case["label"] = f"Test Case #{i}"
+            if "level" not in case:
+                case["level"] = f"(not set)"
+            case["starting_clues"] = count_clues(case["puzzle"])
+
+            for k in self._rkeys:
+                self._results[k].append(case[k])
+        return
+
+    def drop_testcases(self):
+        """Drop test cases but keep results"""
+        self._test_cases = []
+        return
+
+    def run_single_test(self, test_case, solver):
+        """
+        Run a single test case
+        """
+        p = self._puzzle_class()
+        p.init_puzzle(test_case['puzzle'])
+        solver.reset(p)
+        solver.solve()
+        return solver.is_solved()
+
+    def run_tests(self, solver, label, callback=None):
+        """
+        Run all test cases against the `solver` (class ConstraintSolver).
+        Will call `callback` just prior to running each test case.
+        """
+        if not isinstance(solver, ConstraintSolver):
+            raise ValueError("Expected a ConstraintSolver")
+
+        test_case_label = f"{label} ({type(solver).__name__})"
+        self._results[test_case_label] = []
+
+        num_puzzles = 0
+        total_time = 0
+        for test_case in self._test_cases:
+            if callback:
+                callback(label, num_puzzles, self.num_testcases(), total_time, test_case)
+
+            t = timeit.timeit(
+                "pt.run_single_test(test_case, solver)",
+                number=self._test_samples,
+                globals={"pt": self, "test_case": test_case, "solver": solver}
+            )
+            num_puzzles += 1
+            total_time += t
+            self._results[test_case_label].append(t / self._test_samples)
+
+        if callback:
+            callback(label, num_puzzles, self.num_testcases(), total_time, None)
+        return num_puzzles
+
+    def get_test_results(self):
+        """Return the test results structure"""
+        return self._results
