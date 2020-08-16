@@ -164,9 +164,8 @@ class SudokuSolver(pg.ConstraintSolver):
         """
         super().__init__()
 
-        self._max_depth = 0
-        self._backtrack_count = 0
-        self._sort_method = -1
+        self.max_depth = 0
+        self.backtrack_count = 0
 
         if method == 'backtracking':
             self._solver = self.solve_backtracking
@@ -182,8 +181,8 @@ class SudokuSolver(pg.ConstraintSolver):
         Will raise an exception if an already solved puzzle is passed
         """
         assert(not puzzle.is_solved())
-        self._max_depth = 0
-        self._backtrack_count = 0
+        self.max_depth = 0
+        self.backtrack_count = 0
         return self._solver(puzzle)
 
     def solve_backtracking(self, puzzle, depth=0):
@@ -195,8 +194,8 @@ class SudokuSolver(pg.ConstraintSolver):
         if puzzle.num_empty_cells() == 0:
             return True
 
-        if depth > self._max_depth:
-            self._max_depth = depth
+        if depth > self.max_depth:
+            self.max_depth = depth
 
         x, y = puzzle.find_empty_cell()
         for val in puzzle.get_allowed_values(x, y):
@@ -205,7 +204,7 @@ class SudokuSolver(pg.ConstraintSolver):
                 return True
             else:
                 puzzle.clear(x, y)
-                self._backtrack_count += 1
+                self.backtrack_count += 1
 
         return False
 
@@ -216,8 +215,8 @@ class SudokuSolver(pg.ConstraintSolver):
         if puzzle.num_empty_cells() <= 0:
             return True
 
-        if depth > self._max_depth:
-            self._max_depth = depth
+        if depth > self.max_depth:
+            self.max_depth = depth
 
         # Generator function will return cells with only 1 possible value
         # first, then 2, and so on...
@@ -233,7 +232,7 @@ class SudokuSolver(pg.ConstraintSolver):
                 return True
             else:
                 puzzle.clear(x, y)
-                self._backtrack_count += 1
+                self.backtrack_count += 1
 
         return False
 
