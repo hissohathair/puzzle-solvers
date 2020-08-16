@@ -12,6 +12,7 @@ MAX_PUZZLE_SIZE = 25
 MIN_PUZZLE_SIZE = 1
 EMPTY_CELL = None
 MIN_CELL_VALUE = 1
+CELL_VALUES = '123456789ABCDEFGHIJKLMNOP'
 
 
 def build_empty_grid(grid_size):
@@ -31,19 +32,13 @@ def char2int(c):
     """
     Convert character `c` to an int representation:
         - 1-9   Converted to int
-        - A-Z   Converted to int where A=10, B=11, etc.
-        - 0     Converted to EMPTY_CELL
-        - . or - also converted to EMPTY_CELL
+        - A-P   Converted to int where A=10, B=11, ... P=25
+        - 0|.   Converted to EMPTY_CELL
     """
-    if c == "." or c == "-" or c == "0":
+    if c == '.' or c == '0':
         return EMPTY_CELL
-    elif c >= "1" and c <= "9":
-        return int(c)
-    elif c >= "A" and c <= "Z":
-        return 10 + ord(c) - ord("A")
     else:
-        raise ValueError(f"Unable to convert {c} to int")
-    return EMPTY_CELL
+        return CELL_VALUES.index(c) + 1
 
 
 def int2char(i):
@@ -56,13 +51,8 @@ def int2char(i):
     """
     if not i:
         return "."
-    elif i >= 1 and i <= 9:
-        return str(i)
-    elif i >= 10 and i <= MAX_PUZZLE_SIZE:
-        return chr(65 - 10 + i)
     else:
-        raise ValueError(f"Unable to represent {i} as valid character")
-    return " "
+        return CELL_VALUES[i-1]
 
 
 def count_clues(puzzle_grid):
@@ -126,7 +116,7 @@ class ConstraintPuzzle(object):
             self.init_puzzle_from_grid(starting_grid)
         else:
             self.init_puzzle_from_str(starting_grid)
-        return
+        return self
 
     def init_puzzle_from_str(self, starting_grid):
         """
@@ -289,10 +279,7 @@ class ConstraintPuzzle(object):
         while max_possibilities <= self._max_cell_value:
             for i, row in enumerate(self._grid):
                 for j, v in enumerate(row):
-                    if (
-                        not v
-                        and len(self.get_allowed_values(i, j)) <= max_possibilities
-                    ):
+                    if not v and len(self.get_allowed_values(i, j)) <= max_possibilities:
                         yield (i, j)
             max_possibilities += 1
         return ()
@@ -426,6 +413,10 @@ class ConstraintSolver(object):
         """
         return self._puzzle.is_solved()
 
+    def __str__(self):
+        """Return string representation of class state"""
+        return f"original: {self.original}\nsolution: {self._puzzle}"
+
 
 class PuzzleTester(object):
     """Track puzzle benchmarking stats"""
@@ -499,7 +490,7 @@ class PuzzleTester(object):
         if not isinstance(solver, ConstraintSolver):
             raise ValueError("Expected a ConstraintSolver")
 
-        test_case_label = f"{label} ({type(solver).__name__})"
+        test_case_label = label
         self._results[test_case_label] = []
 
         num_puzzles = 0
