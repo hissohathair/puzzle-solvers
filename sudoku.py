@@ -5,24 +5,32 @@
 #
 
 import puzzlegrid as pg
+import random
 
 DEFAULT_BOX_SIZE = 3
 
 
 class SudokuPuzzle(pg.ConstraintPuzzle):
-    def __init__(self, box_size=DEFAULT_BOX_SIZE):
-        """
-        Creates a Sudoku puzzle grid. The size to pass is the `box_size` which is 3 for the
-        standard 9x9 puzzle, because the "boxes" are 3x3.
+    def __init__(self, box_size=DEFAULT_BOX_SIZE, starting_grid=None):
+        """Creates a Sudoku puzzle grid
+
+        The size to pass is the `box_size` which is 3 for the standard 9x9
+        puzzle, because the "boxes" are 3x3.
         """
         grid_size = box_size * box_size
-        super().__init__(grid_size=grid_size)
+        super().__init__(grid_size=grid_size, starting_grid=None)
         self._box_size = box_size
 
-        # Sudoku puzzles have an extra constraint -- boxes cannot contain repeated values
+        # Sudoku puzzles have an extra constraint -- boxes cannot contain
+        # repeated values
         self._allowed_values_for_box = [
             set(self._complete_set) for i in range(grid_size)
         ]
+
+        # Only when initial constraint sets are initialized can we load the
+        # starting grid
+        if starting_grid:
+            self.init_puzzle(starting_grid)
         return
 
     def box_num_to_xy(self, i):
@@ -147,13 +155,19 @@ SOLVERS = ['constraintpropogation', 'backtracking']
 
 
 class SudokuSolver(pg.ConstraintSolver):
-    def __init__(self, puzzle, method='backtracking'):
+    def __init__(self, method='backtracking'):
+        """Initialize SudokuSolver, and optionally nominate preferred solution
+
+        The support methods are:
+            backtracking:           Simple backtracking
+            constraintpropogation:  Backtracking with constraint propogation
         """
-        Initialize SudokuSolver, and optionally nominate preferred solution
-        algorithm. The support algorithms are:
-            - backtracking: Simple back tracking with constraint propogation
-        """
-        super().__init__(puzzle)
+        super().__init__()
+
+        self._max_depth = 0
+        self._backtrack_count = 0
+        self._sort_method = -1
+
         if method == 'backtracking':
             self._solver = self.solve_backtracking
         elif method == 'constraintpropogation':
@@ -162,55 +176,64 @@ class SudokuSolver(pg.ConstraintSolver):
             raise ValueError(f"Unknown method {method}")
         return
 
-    def solve(self):
-        """
-        Calls a particular solving method selected when class instance was
-        initialized.
-        """
-        return self._solver()
+    def solve(self, puzzle):
+        """Calls the solving method selected at initialization
 
-    def solve_backtracking(self):
+        Will raise an exception if an already solved puzzle is passed
         """
-        Implements a simple "naive" back tracking solution for SudokuPuzzle.
+        assert(not puzzle.is_solved())
+        self._max_depth = 0
+        self._backtrack_count = 0
+        return self._solver(puzzle)
+
+    def solve_backtracking(self, puzzle, depth=0):
+        """Implements a simple "naive" back tracking solution
+
         It's naive in the sense that it doesn't optimise its search for the
         next cell, just goes through from top left to bottom right.
         """
-        p = self._puzzle
-        if p.num_empty_cells() == 0:
+        if puzzle.num_empty_cells() == 0:
             return True
 
-        x, y = p.find_empty_cell()
-        for val in p.get_allowed_values(x, y):
-            p.set(x, y, val)
-            if self.solve():
+        if depth > self._max_depth:
+            self._max_depth = depth
+
+        x, y = puzzle.find_empty_cell()
+        for val in puzzle.get_allowed_values(x, y):
+            puzzle.set(x, y, val)
+            if self.solve_backtracking(puzzle, depth=depth + 1):
                 return True
             else:
-                p.clear(x, y)
+                puzzle.clear(x, y)
+                self._backtrack_count += 1
+
         return False
 
-    def solve_constraintpropogation(self):
+    def solve_constraintpropogation(self, puzzle, depth=0):
+        """Implements back tracking solution while taking advantage of constraint
+        propogation
         """
-        Implements back tracking solution while taking advantage of
-        constraint propogation.
-        """
-        p = self._puzzle
-        if p.num_empty_cells() <= 0:
+        if puzzle.num_empty_cells() <= 0:
             return True
+
+        if depth > self._max_depth:
+            self._max_depth = depth
 
         # Generator function will return cells with only 1 possible value
         # first, then 2, and so on...
-        mtGen = p.next_best_empty_cell()
+        mtGen = puzzle.next_best_empty_cell()
         try:
             x, y = next(mtGen)
         except StopIteration:
             return True
 
-        for val in p.get_allowed_values(x, y):
-            p.set(x, y, val)
-            if self.solve_constraintpropogation():
+        for val in puzzle.get_allowed_values(x, y):
+            puzzle.set(x, y, val)
+            if self.solve_constraintpropogation(puzzle, depth=depth + 1):
                 return True
             else:
-                p.clear(x, y)
+                puzzle.clear(x, y)
+                self._backtrack_count += 1
 
         return False
 

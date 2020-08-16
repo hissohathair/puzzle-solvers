@@ -71,16 +71,12 @@ class TestFunctions(unittest.TestCase):
 
 class TestPuzzleGrid(unittest.TestCase):
     def setUp(self):
-        """
-        We (almost) always need these
-        """
         self.p = pg.ConstraintPuzzle()
         return
 
     def test_class_init(self):
-        """
-        Test class initialization
-        """
+        """Test class initialization"""
+
         with self.subTest("Defaults"):
             # Has correct dimensions
             p = pg.ConstraintPuzzle()
@@ -107,9 +103,8 @@ class TestPuzzleGrid(unittest.TestCase):
         return
 
     def test_get_set_and_clear(self):
-        """
-        Correctly get, set and clear value
-        """
+        """Correctly get, set and clear value"""
+
         # Setting some values along the top row
         row = 0
         with self.subTest(f"Testing row {row}"):
@@ -147,9 +142,7 @@ class TestPuzzleGrid(unittest.TestCase):
         return
 
     def test_allowed_values(self):
-        """
-        Test that is_allowed_value correctly enforces constraints
-        """
+        """Test that is_allowed_value correctly enforces constraints"""
         row = 2
         col = 2
         val = 2
@@ -162,36 +155,39 @@ class TestPuzzleGrid(unittest.TestCase):
         return
 
     def test_init_puzzle(self):
-        """
-        Load a Sudoku grid
-        """
-        with self.subTest("Using test puzzle as grid"):
-            self.p.init_puzzle(TEST_PUZZLE)
-            self.assertEqual(50, self.p.num_empty_cells())
-            self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
-            self.assertTrue(self.p.is_puzzle_valid())
-            self.assertFalse(self.p.is_solved())
+        """Load a Sudoku grid"""
 
-        with self.subTest("Using solved puzzle as grid"):
-            self.p.init_puzzle(SOLVED_PUZZLE)
-            self.assertEqual(0, self.p.num_empty_cells())
-            self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
-            self.assertTrue(self.p.is_puzzle_valid())
-            self.assertTrue(self.p.is_solved())
+        with self.subTest("Using unsolved puzzles"):
+            for i in [TEST_PUZZLE, TEST_STRING]:
+                # Init existing puzzle instance
+                self.p.init_puzzle(i)
+                self.assertEqual(50, self.p.num_empty_cells())
+                self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
+                self.assertTrue(self.p.is_puzzle_valid())
+                self.assertFalse(self.p.is_solved())
 
-        with self.subTest("Using test puzzle as string"):
-            self.p.init_puzzle(TEST_STRING)
-            self.assertEqual(50, self.p.num_empty_cells())
-            self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
-            self.assertTrue(self.p.is_puzzle_valid())
-            self.assertFalse(self.p.is_solved())
+                # Init on creation
+                p = pg.ConstraintPuzzle(starting_grid=i)
+                self.assertEqual(50, p.num_empty_cells())
+                self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, p.num_cells())
+                self.assertTrue(p.is_puzzle_valid())
+                self.assertFalse(p.is_solved())
 
-        with self.subTest("Using sovled puzzle as string"):
-            self.p.init_puzzle(SOLVED_STRING)
-            self.assertEqual(0, self.p.num_empty_cells())
-            self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
-            self.assertTrue(self.p.is_puzzle_valid())
-            self.assertTrue(self.p.is_solved())
+        with self.subTest("Using solved puzzles"):
+            for i in [SOLVED_PUZZLE, SOLVED_STRING]:
+                # Init existing puzzle instance
+                self.p.init_puzzle(i)
+                self.assertEqual(0, self.p.num_empty_cells())
+                self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_cells())
+                self.assertTrue(self.p.is_puzzle_valid())
+                self.assertTrue(self.p.is_solved())
+
+                # Init on creation
+                p = pg.ConstraintPuzzle(starting_grid=i)
+                self.assertEqual(0, p.num_empty_cells())
+                self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, p.num_cells())
+                self.assertTrue(p.is_puzzle_valid())
+                self.assertTrue(p.is_solved())
         return
 
     def test_as_string(self):
@@ -205,52 +201,11 @@ class TestPuzzleGrid(unittest.TestCase):
 
 
 class TestSolver(unittest.TestCase):
-    def fake_solver(self, p, solution_grid=SOLVED_PUZZLE):
-        """Copies the values from `solution_grid` to puzzle `p`. Helper for some tests."""
-        for i in range(p.max_value()):
-            for j in range(p.max_value()):
-                if p.is_empty(i, j):
-                    p.set(i, j, SOLVED_PUZZLE[i][j])
-        return
-
     def test_class_init(self):
-        """Test that class initializes and keeps a copy of the original puzzle"""
-        p = pg.ConstraintPuzzle()
-        s = pg.ConstraintSolver(p)
-        self.assertFalse(s.is_solved())  # test data error
-
-        x = 0
-        y = 2
-        p.init_puzzle(TEST_PUZZLE)
-        self.assertFalse(p.is_solved())
-        self.assertFalse(s.is_solved())
-        self.assertTrue(p.is_empty(x, y))  # test data error
-
-        # Actual test now -- changing puzzle "p" should not change original
-        p.set(x, y, 3)
-        self.assertNotEqual(p.get(x, y), s.original.get(x, y))
-
-        # Solve puzzle and recheck. Base class has no solver so we do it manually.
-        self.fake_solver(p)
-        self.assertTrue(p.is_solved())
-        self.assertTrue(s.is_solved())
-        self.assertFalse(s.original.is_solved())
-        return
-
-    def test_reset(self):
-        """Test that solver can be reset to unsolved state"""
-        p = pg.ConstraintPuzzle()
-        s = pg.ConstraintSolver(p)
-        p.init_puzzle(TEST_PUZZLE)
-
-        self.assertFalse(s.is_solved())  # test data error
-        self.fake_solver(p)
-        self.assertTrue(p.is_solved())
-        self.assertTrue(s.is_solved())
-
-        s.reset()
-        self.assertTrue(p.is_solved())
-        self.assertFalse(s.is_solved())
+        """Test that class initializes"""
+        p = pg.ConstraintPuzzle(starting_grid=TEST_STRING)
+        s = pg.ConstraintSolver()
+        self.assertRaises(NotImplementedError, s.solve, p)
         return
 
 

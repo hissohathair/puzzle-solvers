@@ -2,7 +2,7 @@
 
 import unittest
 import puzzlegrid as pg
-import sudoku
+import sudoku as su
 
 BOX_SIZE = 3
 
@@ -57,19 +57,14 @@ ILLEGAL_MOVES = [
 
 class TestSudoku(unittest.TestCase):
     def setUp(self):
-        self.p = sudoku.SudokuPuzzle(BOX_SIZE)
-        self.p.init_puzzle(TEST_PUZZLE)
-
-        self.s = sudoku.SudokuPuzzle(BOX_SIZE)
-        self.s.init_puzzle(SOLVED_PUZZLE)
-
+        self.p = su.SudokuPuzzle(BOX_SIZE, TEST_PUZZLE)
+        self.s = su.SudokuPuzzle(BOX_SIZE, SOLVED_PUZZLE)
         self.legal_moves = LEGAL_MOVES
         self.illegal_moves = ILLEGAL_MOVES
+        return
 
     def test_class_init(self):
-        """
-        Test that class init makes a copy of starting grid
-        """
+        """Test that class init makes a copy of starting grid"""
         x = 0
         y = 2
         test_value = TEST_PUZZLE[x][y]
@@ -79,27 +74,27 @@ class TestSudoku(unittest.TestCase):
         self.p.set(0, 0, set_value)
         self.assertEqual(self.p.get(0, 0), set_value)
         self.assertNotEqual(self.p.get(0, 0), test_value)
+        return
 
     def test_class_init_empty(self):
-        """
-        Test that class init can create an empty grid
-        """
-        p = sudoku.SudokuPuzzle()
+        """Test that class init can create an empty grid"""
+        p = su.SudokuPuzzle()
         for x in range(p.max_value()):
             for y in range(p.max_value()):
                 self.assertTrue(p.is_empty(x, y))
+        return
 
     def test_class_init_raises_exception(self):
-        """
-        Test that class init raises an exception for malformed grids
-        """
+        """Test that class init raises an exception for malformed grids"""
         data = [1, 2, 3]
         self.assertRaises(ValueError, self.p.init_puzzle, data)
         data = [[1, 2, 3] for x in range(self.p.max_value())]
         self.assertRaises(ValueError, self.p.init_puzzle, data)
+        return
 
     def test_box_num_toxy(self):
-        """
+        """Conversion of box numbers to (x,y) positions
+
         0 (0,0)   1 (0, 3)   2 (0, 6)
         3 (3,0)   4 (3, 3)   5 (3, 6)
         6 (6,0)   7 (6, 3)   8 (6, 6)
@@ -124,9 +119,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_box_xy_tonum(self):
-        """
-        Reverse of above
-        """
+        """Reverse of above"""
         for x in range(self.p.max_value()):
             for y in range(self.p.max_value()):
                 with self.subTest(f"Cage for {x},{y}"):
@@ -138,9 +131,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_clear_and_set(self):
-        """
-        Correctly clear and set a value
-        """
+        """Correctly clear and set a value"""
         x = 1
         y = 1
         test_value = TEST_PUZZLE[x][y]
@@ -157,11 +148,10 @@ class TestSudoku(unittest.TestCase):
         self.assertEqual(self.p.get(x, y), test_value)
         self.assertFalse(self.p.is_empty(x, y))
         self.assertEqual(num_empty, self.p.num_empty_cells())
+        return
 
     def test_empty_cells(self):
-        """
-        Check the methods for getting empty cells
-        """
+        """Check the methods for getting empty cells"""
         with self.subTest(f"Basic empty cell count check"):
             self.assertEqual(len(self.p.get_all_empty_cells()), 50)
             self.assertEqual(
@@ -175,13 +165,10 @@ class TestSudoku(unittest.TestCase):
         with self.subTest(f"Empty cells are empty"):
             for m in self.p.get_all_empty_cells():
                 self.assertTrue(self.p.is_empty(m[0], m[1]))
-
         return
 
     def test_next_empty_cell(self):
-        """
-        Test generator function next_empty_cell()
-        """
+        """Test generator function next_empty_cell()"""
         with self.subTest(f"next_empty_cell returns all empty cells"):
             mts = [m for m in self.p.next_empty_cell()]
             self.assertEqual(mts, self.p.get_all_empty_cells())
@@ -200,10 +187,10 @@ class TestSudoku(unittest.TestCase):
             for m in mts:
                 x = next(mtGen)
                 self.assertEqual(m, x)
-
         return
 
     def test_get_values(self):
+        """Get row, column, and box values"""
         with self.subTest("get_row_values"):
             self.assertEqual(self.p.get_row_values(0), [8, 9, 4, 5, 6])
             self.assertEqual(self.p.get_row_values(7), [3, 2, 1, 7, 8])
@@ -216,11 +203,10 @@ class TestSudoku(unittest.TestCase):
             self.assertEqual(self.p.get_box_values(0, 0), [8, 9, 1, 4])
             self.assertEqual(self.p.get_box_values(7, 0), [8, 3, 4, 2])
             self.assertEqual(self.p.get_box_values(7, 7), [7, 8, 1, 3])
+        return
 
     def test_possible_values(self):
-        """
-        Test that function returns legal values
-        """
+        """Test that function returns legal values"""
         with self.subTest("Checking possible values"):
             self.assertEqual(self.p.get_allowed_values(0, 0), {8})
             self.assertEqual(self.p.get_allowed_values(2, 2), {2, 3, 5, 6, 7})
@@ -239,46 +225,41 @@ class TestSudoku(unittest.TestCase):
                         with self.subTest(f"Cell {x},{y} -> {vlist}"):
                             for v in vlist:
                                 self.assertTrue(self.p.is_allowed_value(x, y, v))
+        return
 
     def test_legal_move(self):
-        """
-        Correctly tell us if a move is legal
-        """
+        """Correctly tell us if a move is legal"""
         for i in range(len(self.legal_moves)):
             with self.subTest(i=i):
                 m = self.legal_moves[i]
                 self.assertEqual(SOLVED_PUZZLE[m[0]][m[1]], m[2])  # test data error
                 self.assertTrue(self.p.is_allowed_value(m[0], m[1], m[2]))
+        return
 
     def test_invalid_move(self):
-        """
-        Correctly tell us if we use a value out of range for a cell
-        """
+        """Correctly tell us if we use a value out of range for a cell"""
         self.assertRaises(ValueError, self.p.set, 0, 0, 0)
         self.assertRaises(ValueError, self.p.set, 0, 0, self.p.max_value() + 1)
+        return
 
     def test_illegal_moves(self):
-        """
-        Correctly tell us if a move is NOT legal
-        """
+        """Correctly tell us if a move is NOT legal"""
         for i in range(len(self.illegal_moves)):
             with self.subTest(i=i):
                 m = self.illegal_moves[i]
                 self.assertFalse(self.p.is_allowed_value(m[0], m[1], m[2]))
+        return
 
     def test_illegal_set(self):
-        """
-        Throw exception if we attempt an illegal move
-        """
+        """Throw exception if we attempt an illegal move"""
         for i in range(len(self.illegal_moves)):
             with self.subTest(i=i):
                 m = self.illegal_moves[i]
                 self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
+        return
 
     def test_is_puzzle_valid(self):
-        """
-        Correctly tell us if a puzzle grid is or is not valid
-        """
+        """Correctly tell us if a puzzle grid is or is not valid"""
         self.assertTrue(self.p.is_puzzle_valid())
 
         for i in range(len(self.illegal_moves)):
@@ -290,11 +271,10 @@ class TestSudoku(unittest.TestCase):
                 self.assertFalse(self.p.is_puzzle_valid())
                 self.p._grid[m[0]][m[1]] = old_val
                 self.assertTrue(self.p.is_puzzle_valid())
+        return
 
     def test_is_solved(self):
-        """
-        Correctly tell us if a puzzle is solved
-        """
+        """Correctly tell us if a puzzle is solved"""
         self.assertFalse(self.p.is_solved())
 
         v = self.s.get(0, 0)
@@ -303,22 +283,20 @@ class TestSudoku(unittest.TestCase):
 
         self.s.set(0, 0, v)
         self.assertTrue(self.s.is_solved())
+        return
 
     def test_play_legal_game(self):
-        """
-        Plays an entire game consisting of only legal moves.
-        """
+        """Plays an entire game consisting of only legal moves."""
         self.assertFalse(self.p.is_solved())  # test data error
         self.assertTrue(self.s.is_solved())
 
         for m in self.p.get_all_empty_cells():
             self.p.set(m[0], m[1], self.s.get(m[0], m[1]))
         self.assertTrue(self.p.is_solved())
+        return
 
     def test_play_dodgy_game(self):
-        """
-        Plays an entire game, including some illegal moves.
-        """
+        """Plays an entire game, including some illegal moves."""
         self.assertFalse(self.p.is_solved())  # test data error
 
         # Make some legal moves
@@ -343,22 +321,21 @@ class TestSudoku(unittest.TestCase):
             self.p.set(m[0], m[1], v)
 
         self.assertTrue(self.p.is_solved())
+        return
 
     def test_all_sample_puzzles(self):
-        """
-        Loads all the sample puzzles to check for formattign and validity.
-        """
-        for puz in sudoku.SAMPLE_PUZZLES:
+        """Loads all the sample puzzles to check for formattign and validity."""
+        for puz in su.SAMPLE_PUZZLES:
             with self.subTest(puz["label"]):
                 self.p.init_puzzle(puz["puzzle"])
                 self.assertTrue(self.p.is_puzzle_valid())
+        return
 
     def test_as_string(self):
-        """
-        Just tests that we get *some* kind of string. Also tests as_html
-        """
+        """Just tests that we get *some* kind of string. Also tests as_html"""
         self.assertTrue(len(self.p.__str__()) >= 81)
         self.assertTrue(len(self.p.as_html()) > 900)
+        return
 
 
 class TestSolver(unittest.TestCase):
@@ -366,55 +343,43 @@ class TestSolver(unittest.TestCase):
 
     def setUp(self):
         """Handy to have an unsolved (p) and already solved puzzle (s) for later tests"""
-        self.p = sudoku.SudokuPuzzle(BOX_SIZE)
-        self.p.init_puzzle(TEST_PUZZLE)
-
-        self.s = sudoku.SudokuPuzzle(BOX_SIZE)
-        self.s.init_puzzle(SOLVED_PUZZLE)
+        self.p = su.SudokuPuzzle(BOX_SIZE, TEST_PUZZLE)
+        self.s = su.SudokuPuzzle(BOX_SIZE, SOLVED_PUZZLE)
         return
 
     def test_backtracking(self):
         """Test the backtracking solution (default)"""
-        solver = sudoku.SudokuSolver(self.p)
-        self.assertTrue(isinstance(solver, pg.ConstraintSolver))
-        self.assertTrue(solver.solve())
-        self.assertTrue(solver.is_solved())
+        solver = su.SudokuSolver()
+        self.assertTrue(solver.solve(self.p))
+        self.assertTrue(self.p.is_solved())
+        return
 
     def test_all_solvers(self):
         """Test that all available solvers are supported"""
-        for x in sudoku.SOLVERS:
-            p = sudoku.SudokuPuzzle()
-            p.init_puzzle(TEST_PUZZLE)
-            solver = sudoku.SudokuSolver(p, method=x)
+        for x in su.SOLVERS:
+            p = su.SudokuPuzzle(starting_grid=TEST_PUZZLE)
+            solver = su.SudokuSolver(method=x)
             with self.subTest(f"Method {x}"):
-                self.assertTrue(solver.solve())
-                self.assertTrue(solver.is_solved())
+                self.assertTrue(solver.solve(p))
+                self.assertTrue(p.is_solved())
         return
 
 
 class TestPuzzleTester(unittest.TestCase):
     def setUp(self):
         self.include_levels = ['Kids', 'Easy', 'Moderate', 'Hard']
-        self.test_cases = [x for x in sudoku.SAMPLE_PUZZLES if x['level'] in self.include_levels]
-        self.pt = pg.PuzzleTester(puzzle_class=sudoku.SudokuPuzzle)
+        self.test_cases = [x for x in su.SAMPLE_PUZZLES if x['level'] in self.include_levels]
+        self.pt = pg.PuzzleTester(puzzle_class=su.SudokuPuzzle)
         self.pt.add_testcases(self.test_cases)
         return
 
     def test_solver(self):
-        p = sudoku.SudokuPuzzle()
-        s = sudoku.SudokuSolver(p, method='constraintpropogation')
-
-        # Single test case
-        self.assertTrue(self.pt.run_single_test(self.test_cases[0], s))
-
-        # All test cases - solver 1
-        self.assertEqual(8, self.pt.num_testcases())
-        self.assertEqual(8, self.pt.run_tests(s, 'unittest1'))
-
-        # All test cases - solver 2
-        s = sudoku.SudokuSolver(p, method='backtracking')
-        self.assertEqual(8, self.pt.run_tests(s, 'unittest2'))
-        # print(self.pt.get_test_results())
+        """Use PuzzleTester class to test SudokuSolver"""
+        for m in su.SOLVERS:
+            with self.subTest(f"method: {m}"):
+                s = su.SudokuSolver(method=m)
+                self.assertEqual(8, self.pt.num_testcases())
+                self.assertEqual(8, self.pt.run_tests(s, m))
         return
 
 
