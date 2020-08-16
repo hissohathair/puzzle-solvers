@@ -1,6 +1,6 @@
 # play
 
-import sudoku
+import sudoku as su
 import cProfile
 
 
@@ -30,15 +30,21 @@ def solve_using_backtracking(puzzle):
     return False
 
 
-def play_sudoku(i=0, use_class=sudoku.SudokuPuzzle):
-    p = use_class()
-    p.init_puzzle('4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......')
-    print(p)
-
-    solve_using_backtracking(p)
-    print("\nSolution:")
-    print(p)
-    assert p.is_solved()
+def play_sudoku(p, s, puzzle):
+    assert(not s.is_solved())
+    s.solve()
+    assert(s.is_solved())
+    print(f"{s}\n")
+    assert s.is_solved()
 
 
-cProfile.run("play_sudoku(5)", sort="tottime")
+puzzle = '.834.........7..5...........4.1.8..........27...3.....2.6.5....5.....8........1..'
+# cProfile.run("play_sudoku_1(puzzle)", sort="tottime")
+
+p = su.SudokuPuzzle()
+p.init_puzzle(puzzle)
+s = su.SudokuSolver(p, method='constraintpropogation')
+for i in range(4):
+    # cProfile.run("play_sudoku(p, puzzle)", sort="tottime")
+    play_sudoku(p, s, puzzle)
+    s.reset()
