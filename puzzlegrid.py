@@ -432,7 +432,7 @@ class PuzzleTester(object):
         self._test_cases = []
         return
 
-    def run_single_test(self, test_case, solver):
+    def run_single_test(self, test_case, puzzle, solver):
         """Run a single test case. Execution of this method is what run_tests is timing
 
         Method will create a new instance of a puzzle, using the `puzzle_class`
@@ -444,9 +444,10 @@ class PuzzleTester(object):
             test_case:  Dict containing test case, must contain 'puzzle'
             solver:     Instance of a ConstraintSolver class with solve() method
         """
-        p = self._puzzle_class(starting_grid=test_case['puzzle'])
-        solver.solve(p)
-        return p.is_solved()
+        # p = self._puzzle_class(starting_grid=test_case['puzzle'])
+        puzzle.init_puzzle(test_case['puzzle'])
+        solver.solve(puzzle)
+        return puzzle.is_solved()
 
     def run_tests(self, solver, label, callback=None):
         """Run all test cases against the `solver` (class ConstraintSolver)
@@ -477,10 +478,11 @@ class PuzzleTester(object):
             if callback:
                 callback(label, num_puzzles, self.num_testcases(), total_time, test_case)
 
+            puzzle = self._puzzle_class()
             t = timeit.timeit(
-                "pt.run_single_test(test_case, solver)",
+                "pt.run_single_test(test_case, puzzle, solver)",
                 number=self._test_samples,
-                globals={"pt": self, "test_case": test_case, "solver": solver}
+                globals={"pt": self, "test_case": test_case, "solver": solver, "puzzle": puzzle}
             )
             num_puzzles += 1
             total_time += t
