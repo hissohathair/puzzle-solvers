@@ -115,7 +115,7 @@ class ConstraintPuzzle(object):
     def init_puzzle_from_str(self, starting_grid):
         """Initializes a puzzle grid from a flat string representation
 
-        Example: '89.4...5614.35..9.......8..9.....'. 
+        Example: '89.4...5614.35..9.......8..9.....'.
         """
         self.clear_all()
 
@@ -447,7 +447,8 @@ class PuzzleTester(object):
         # p = self._puzzle_class(starting_grid=test_case['puzzle'])
         puzzle.init_puzzle(test_case['puzzle'])
         solver.solve(puzzle)
-        return puzzle.is_solved()
+        self._last_was_solved = puzzle.is_solved()
+        return self._last_was_solved
 
     def run_tests(self, solver, label, callback=None):
         """Run all test cases against the `solver` (class ConstraintSolver)
@@ -479,14 +480,23 @@ class PuzzleTester(object):
                 callback(label, num_puzzles, self.num_testcases(), total_time, test_case)
 
             puzzle = self._puzzle_class()
+            self._last_was_solved = False
             t = timeit.timeit(
                 "pt.run_single_test(test_case, puzzle, solver)",
                 number=self._test_samples,
-                globals={"pt": self, "test_case": test_case, "solver": solver, "puzzle": puzzle}
+                globals={
+                    "pt": self,
+                    "test_case": test_case,
+                    "solver": solver,
+                    "puzzle": puzzle,
+                }
             )
             num_puzzles += 1
             total_time += t
-            self._results[label].append(t / self._test_samples)
+            if self._last_was_solved:
+                self._results[label].append(t / self._test_samples)
+            else:
+                self._results[label].append(None)
 
         if callback:
             callback(label, num_puzzles, self.num_testcases(), total_time, None)
