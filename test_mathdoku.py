@@ -176,6 +176,22 @@ class TestMathDoku(unittest.TestCase):
         self.assertTrue(self.m.is_solved())
         return
 
+    def test_sample_puzzles(self):
+        """Test the sample puzzles in mathdoku.py"""
+        for puzzle in md.SAMPLE_PUZZLES:
+            with self.subTest(puzzle['label']):
+                m = md.MathDoku(grid_size=puzzle['grid_size'])
+                m.init_puzzle(puzzle['cages'], puzzle['cage_map'])
+                self.assertTrue(m.is_puzzle_valid())
+                self.assertFalse(m.is_solved())
+
+                if 'answer' in puzzle:
+                    for i, row in enumerate(puzzle['answer']):
+                        for j, value in enumerate(row):
+                            m.set(i, j, value)
+                    self.assertTrue(m.is_solved())
+        return
+
 
 if __name__ == "__main__":
     unittest.main()
