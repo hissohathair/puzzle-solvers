@@ -5,7 +5,6 @@
 #
 
 import puzzlegrid as pg
-import random
 
 DEFAULT_BOX_SIZE = 3
 
@@ -114,7 +113,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         # Does any box contain repeated values?
         for i in range(self._max_cell_value):
             pos = self.box_num_to_xy(i)
-            values = self.get_box_values(pos[0], pos[1])
+            values = self.get_box_values(*pos)
             if len(values) != len(set(values)):
                 return False
 

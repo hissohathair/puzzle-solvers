@@ -113,9 +113,7 @@ class TestSudoku(unittest.TestCase):
         for i in range(self.p.max_value()):
             with self.subTest(f"Cage {i} at {correct_values[i]}"):
                 self.assertEqual(self.p.box_num_to_xy(i), correct_values[i])
-                self.assertEqual(
-                    self.p.box_xy_to_num(correct_values[i][0], correct_values[i][1]), i
-                )
+                self.assertEqual(self.p.box_xy_to_num(*correct_values[i]), i)
         return
 
     def test_box_xy_tonum(self):
@@ -126,7 +124,7 @@ class TestSudoku(unittest.TestCase):
                     num = self.p.box_xy_to_num(x, y)
                     pos = self.p.box_num_to_xy(num)
                     self.assertEqual(
-                        self.p.box_xy_to_num(x, y), self.p.box_xy_to_num(pos[0], pos[1])
+                        self.p.box_xy_to_num(x, y), self.p.box_xy_to_num(*pos)
                     )
         return
 
@@ -164,7 +162,7 @@ class TestSudoku(unittest.TestCase):
 
         with self.subTest(f"Empty cells are empty"):
             for m in self.p.get_all_empty_cells():
-                self.assertTrue(self.p.is_empty(m[0], m[1]))
+                self.assertTrue(self.p.is_empty(*m))
         return
 
     def test_next_empty_cell(self):
@@ -233,7 +231,7 @@ class TestSudoku(unittest.TestCase):
             with self.subTest(i=i):
                 m = self.legal_moves[i]
                 self.assertEqual(SOLVED_PUZZLE[m[0]][m[1]], m[2])  # test data error
-                self.assertTrue(self.p.is_allowed_value(m[0], m[1], m[2]))
+                self.assertTrue(self.p.is_allowed_value(*m))
         return
 
     def test_invalid_move(self):
@@ -247,7 +245,7 @@ class TestSudoku(unittest.TestCase):
         for i in range(len(self.illegal_moves)):
             with self.subTest(i=i):
                 m = self.illegal_moves[i]
-                self.assertFalse(self.p.is_allowed_value(m[0], m[1], m[2]))
+                self.assertFalse(self.p.is_allowed_value(*m))
         return
 
     def test_illegal_set(self):
@@ -255,7 +253,7 @@ class TestSudoku(unittest.TestCase):
         for i in range(len(self.illegal_moves)):
             with self.subTest(i=i):
                 m = self.illegal_moves[i]
-                self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
+                self.assertRaises(ValueError, self.p.set, *m)
         return
 
     def test_is_puzzle_valid(self):
@@ -266,7 +264,7 @@ class TestSudoku(unittest.TestCase):
             with self.subTest(i=i):
                 m = list(self.illegal_moves[i])
                 new_val = m.pop()
-                old_val = self.p.get(m[0], m[1])
+                old_val = self.p.get(*m)
                 self.p._grid[m[0]][m[1]] = new_val
                 self.assertFalse(self.p.is_puzzle_valid())
                 self.p._grid[m[0]][m[1]] = old_val
@@ -291,7 +289,7 @@ class TestSudoku(unittest.TestCase):
         self.assertTrue(self.s.is_solved())
 
         for m in self.p.get_all_empty_cells():
-            self.p.set(m[0], m[1], self.s.get(m[0], m[1]))
+            self.p.set(*m, self.s.get(*m))
         self.assertTrue(self.p.is_solved())
         return
 
@@ -302,23 +300,23 @@ class TestSudoku(unittest.TestCase):
         # Make some legal moves
         for m in self.legal_moves:
             self.subTest(f"Legal move: {m}")
-            self.p.set(m[0], m[1], m[2])
+            self.p.set(*m)
         self.assertTrue(self.p.is_puzzle_valid())
 
         # Attempt to make some illegal moves
         for m in self.illegal_moves:
             self.subTest(f"Illegal move {m}")
             self.assertTrue(len(m) == 3)
-            self.assertFalse(self.p.is_allowed_value(m[0], m[1], m[2]))
-            self.assertRaises(ValueError, self.p.set, m[0], m[1], m[2])
+            self.assertFalse(self.p.is_allowed_value(*m))
+            self.assertRaises(ValueError, self.p.set, *m)
         self.assertTrue(self.p.is_puzzle_valid())
 
         # Finish the game
         for m in self.p.get_all_empty_cells():
-            v = self.s.get(m[0], m[1])
-            if not self.p.is_allowed_value(m[0], m[1], v + 1):
-                self.assertRaises(ValueError, self.p.set, m[0], m[1], v + 1)
-            self.p.set(m[0], m[1], v)
+            v = self.s.get(*m)
+            if not self.p.is_allowed_value(*m, v + 1):
+                self.assertRaises(ValueError, self.p.set, *m, v + 1)
+            self.p.set(*m, v)
 
         self.assertTrue(self.p.is_solved())
         return

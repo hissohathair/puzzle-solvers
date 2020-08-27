@@ -46,7 +46,7 @@ def int2char(i):
     if not i:
         return "."
     else:
-        return CELL_VALUES[i-1]
+        return CELL_VALUES[i - 1]
 
 
 def count_clues(puzzle_grid):
@@ -103,7 +103,7 @@ class ConstraintPuzzle(object):
     def init_puzzle(self, starting_grid):
         """Initializes a puzzle grid based on contents of `starting_grid`
 
-        starting_grid:  Can be either a string or 2D array (list of lists of 
+        starting_grid:  Can be either a string or 2D array (list of lists of
                         ints)
         """
         if isinstance(starting_grid, list):
@@ -133,7 +133,7 @@ class ConstraintPuzzle(object):
     def init_puzzle_from_grid(self, starting_grid):
         """Initializes a puzzle grid to the 2D array passed in `starting_grid`
 
-        Raises ValueError exception if the new starting_grid is the wrong size, 
+        Raises ValueError exception if the new starting_grid is the wrong size,
         or violates a constraint
         """
         self.clear_all()
@@ -380,7 +380,7 @@ class PuzzleTester(object):
 
         Parameters:
             puzzle_class:   Tester will create new instances of this class for
-                            the solver. Class should be derived from 
+                            the solver. Class should be derived from
                             ConstraintPuzzle
             test_samples:   Number of times to repeat each test case
         """
