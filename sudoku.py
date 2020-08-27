@@ -131,7 +131,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
             for y in range(self._max_cell_value):
                 if not self.is_empty(x, y):
                     row_to_show.append(self.get(x, y))
-                elif len(self.get_allowed_values(x, y)) < show_possibilities:
+                elif len(self.get_allowed_values(x, y)) <= show_possibilities:
                     row_to_show.append(self.get_allowed_values(x, y))
                 else:
                     row_to_show.append(" ")
