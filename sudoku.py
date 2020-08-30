@@ -5,6 +5,7 @@
 #
 
 import puzzlegrid as pg
+from functools import wraps
 
 DEFAULT_BOX_SIZE = 3
 
@@ -31,6 +32,10 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         if starting_grid:
             self.init_puzzle(starting_grid)
         return
+
+    def box_size(self):
+        """Return box_size"""
+        return self._box_size
 
     def box_num_to_xy(self, i):
         """
@@ -150,11 +155,17 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         return ret
 
 
-SOLVERS = ['constraintpropogation', 'backtracking']
+SOLVERS = dict()
+
+
+def solver(func):
+    """Register method as a solver"""
+    SOLVERS[func.__name__] = func
+    return func
 
 
 class SudokuSolver(pg.ConstraintSolver):
-    def __init__(self, method='backtracking'):
+    def __init__(self, method='solve_backtracking'):
         """Initialize SudokuSolver, and optionally nominate preferred solution
 
         The support methods are:
@@ -166,10 +177,8 @@ class SudokuSolver(pg.ConstraintSolver):
         self.max_depth = 0
         self.backtrack_count = 0
 
-        if method == 'backtracking':
-            self._solver = self.solve_backtracking
-        elif method == 'constraintpropogation':
-            self._solver = self.solve_constraintpropogation
+        if method in SOLVERS:
+            self._solver = eval(f"self.{method}")
         else:
             raise ValueError(f"Unknown method {method}")
         return
@@ -184,6 +193,7 @@ class SudokuSolver(pg.ConstraintSolver):
         self.backtrack_count = 0
         return self._solver(puzzle)
 
+    @solver
     def solve_backtracking(self, puzzle, depth=0):
         """Implements a simple "naive" back tracking solution
 
@@ -207,6 +217,7 @@ class SudokuSolver(pg.ConstraintSolver):
 
         return False
 
+    @solver
     def solve_constraintpropogation(self, puzzle, depth=0):
         """Implements back tracking solution while taking advantage of constraint
         propogation
@@ -234,6 +245,136 @@ class SudokuSolver(pg.ConstraintSolver):
                 self.backtrack_count += 1
 
         return False
+
+    @solver
+    def solve_single_possibilities(self, puzzle):
+        """Attempt to solve the puzzle by finding cells with single possibilities
+
+        Single possibilities are those cells for which there is only one
+        possible value, all others already exist in that row, column or box.
+        This is sometimes enough to solve very easy Sudoku puzzles.
+
+        Returns True if the puzzle is solved, False otherwise.
+        """
+
+        # Keeps trying until we are no longer able to solve cells
+        num_cells_updated = 1
+        while num_cells_updated > 0:
+            num_cells_updated = 0
+            for m in puzzle.next_best_empty_cell():
+                possibles = puzzle.get_allowed_values(*m)
+                if len(possibles) == 1:
+                    (v,) = possibles
+                    puzzle.set(*m, v)
+                    num_cells_updated += 1
+
+        return puzzle.is_solved()
+
+    @solver
+    def solve_only_squares(self, puzzle):
+        """Find cases where there is only one cell in a group that can take a value
+
+        A group is a row, column, or box. Calls the group-specific methods below.
+        Returns True if puzzle is solved.
+        """
+
+        # Keeps trying until the method fails to solve any new cells
+        num_cells_updated = 1
+        while num_cells_updated > 0:
+            num_cells_updated = self.solve_only_row_squares(puzzle) + self.solve_only_column_squares(puzzle) + self.solve_only_box_squares(puzzle)
+
+        return puzzle.is_solved()
+
+    def solve_only_row_squares(self, puzzle):
+        """Find cases where there is only one cell that can take a particular
+        value for the row
+
+        Returns number of cells solved this call.
+        """
+        num_cells_updated = 0
+        for x in range(puzzle.max_value()):
+            # What *hasn't* this row got?
+            missing = puzzle.complete_set() - set(puzzle.get_row_values(x))
+
+            # How many places on this row could each missing value go?
+            for v in missing:
+                possible_cells = []
+                for y in range(puzzle.max_value()):
+                    if puzzle.is_empty(x, y) and v in puzzle.get_allowed_values(x, y):
+                        possible_cells.append((x, y))
+
+                # only one possible location?
+                if len(possible_cells) == 1:
+                    # print(f"Row {x} needs a {v} and it can only go here {possible_cells}", file=sys.stderr)
+                    num_cells_updated += 1
+                    puzzle.set(*possible_cells[0], v)
+
+        return num_cells_updated
+
+    def solve_only_column_squares(self, puzzle):
+        """Find cases where there is only one cell that can take a particular
+        value for the column
+
+        Returns True if puzzle solved, False otherwise.
+        """
+        num_cells_updated = 0
+        for y in range(puzzle.max_value()):
+            # What hasn't this column got?
+            missing = puzzle.complete_set() - set(puzzle.get_column_values(y))
+
+            # How many places in this column could each missing value go?
+            for v in missing:
+                possible_cells = []
+                for x in range(puzzle.max_value()):
+                    if puzzle.is_empty(x, y) and v in puzzle.get_allowed_values(x, y):
+                        possible_cells.append((x, y))
+
+                # Only one possible location?
+                if len(possible_cells) == 1:
+                    # print(f"Column {y} needs a {v} and it can only go here {possible_cells}", file=sys.stderr)
+                    num_cells_updated += 1
+                    puzzle.set(*possible_cells[0], v)
+
+        return num_cells_updated
+
+    def solve_only_box_squares(self, puzzle):
+        """Find cases where there is only one cell that can take a particular
+        value for the box
+
+        Returns True if puzzle solved, False otherwise.
+        """
+        num_cells_updated = 0
+        for box in range(puzzle.max_value()):
+            # What hasn't this box got?
+            missing = puzzle.complete_set() - set(puzzle.get_box_values(*puzzle.box_num_to_xy(box)))
+
+            # How many places in this box could each missing value go?
+            for v in missing:
+                possible_cells = []
+                box_x, box_y = puzzle.box_num_to_xy(box)
+                for x in range(box_x, box_x + puzzle.box_size()):
+                    for y in range(box_y, box_y + puzzle.box_size()):
+                        if puzzle.is_empty(x, y) and v in puzzle.get_allowed_values(x, y):
+                            possible_cells.append((x, y))
+
+                # Only one possible location?
+                if len(possible_cells) == 1:
+                    # print(f"Box {box} needs a {v} and it can only go here {possible_cells}", file=sys.stderr)
+                    num_cells_updated += 1
+                    puzzle.set(*possible_cells[0], v)
+
+        return num_cells_updated
+
+    def solve_using_combination(self, puzzle):
+        """Try single possibilities first, then constraint propogation"""
+        if self.solve_single_possibilities(puzzle):
+            return True
+        elif self.solve_only_squares(puzzle):
+            return True
+        else:
+            return self.solve_constraintpropogation(puzzle)
+
+        return puzzle.is_solved()
 
 
 # Some puzzles for testing

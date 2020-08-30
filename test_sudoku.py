@@ -1,4 +1,4 @@
-# test
+# test_sudoku.py
 
 import unittest
 import puzzlegrid as pg
@@ -64,7 +64,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_class_init(self):
-        """Test that class init makes a copy of starting grid"""
+        """Class init makes a copy of starting grid"""
         x = 0
         y = 2
         test_value = TEST_PUZZLE[x][y]
@@ -77,7 +77,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_class_init_empty(self):
-        """Test that class init can create an empty grid"""
+        """Class init can create an empty grid"""
         p = su.SudokuPuzzle()
         for x in range(p.max_value()):
             for y in range(p.max_value()):
@@ -85,7 +85,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_class_init_raises_exception(self):
-        """Test that class init raises an exception for malformed grids"""
+        """Class init raises an exception for malformed grids"""
         data = [1, 2, 3]
         self.assertRaises(ValueError, self.p.init_puzzle, data)
         data = [[1, 2, 3] for x in range(self.p.max_value())]
@@ -117,7 +117,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_box_xy_tonum(self):
-        """Reverse of above"""
+        """Conversion of x,y cell positions to box numbers"""
         for x in range(self.p.max_value()):
             for y in range(self.p.max_value()):
                 with self.subTest(f"Cage for {x},{y}"):
@@ -129,7 +129,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_clear_and_set(self):
-        """Correctly clear and set a value"""
+        """Clear and set a value for a cell"""
         x = 1
         y = 1
         test_value = TEST_PUZZLE[x][y]
@@ -284,7 +284,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_play_legal_game(self):
-        """Plays an entire game consisting of only legal moves."""
+        """Plays an entire game consisting of only legal moves"""
         self.assertFalse(self.p.is_solved())  # test data error
         self.assertTrue(self.s.is_solved())
 
@@ -294,7 +294,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_play_dodgy_game(self):
-        """Plays an entire game, including some illegal moves."""
+        """Plays an entire game, including some illegal moves"""
         self.assertFalse(self.p.is_solved())  # test data error
 
         # Make some legal moves
@@ -322,7 +322,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_all_sample_puzzles(self):
-        """Loads all the sample puzzles to check for formattign and validity."""
+        """Loads all the sample puzzles to check for formattign and validity"""
         for puz in su.SAMPLE_PUZZLES:
             with self.subTest(puz["label"]):
                 self.p.init_puzzle(puz["puzzle"])
@@ -330,7 +330,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_as_string(self):
-        """Just tests that we get *some* kind of string. Also tests as_html"""
+        """String representations of puzzle grid"""
         self.assertTrue(len(self.p.__str__()) >= 81)
         self.assertTrue(len(self.p.as_html()) > 900)
         return
@@ -350,6 +350,48 @@ class TestSolver(unittest.TestCase):
         solver = su.SudokuSolver()
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
+        return
+
+    def test_single_possibilities(self):
+        """The 'kids' puzzle can be solved using single possibilities only"""
+        self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+        solver = su.SudokuSolver(method='solve_single_possibilities')
+        self.assertTrue(solver.solve_single_possibilities(self.p))
+        self.assertTrue(self.p.is_solved())
+
+        # Not expecting any others to work
+        self.p.init_puzzle(su.SAMPLE_PUZZLES[1]['puzzle'])
+        self.assertFalse(solver.solve_single_possibilities(self.p))
+        self.assertFalse(self.p.is_solved())
+        return
+
+    def test_only_squares(self):
+        """Solve a puzzle using 'only squares' technique"""
+        solver = su.SudokuSolver()
+
+        with self.subTest("Solve some only squares by row"):
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.assertTrue(solver.solve_only_row_squares(self.p) > 0)
+
+        with self.subTest("Solve some only squares by column"):
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.assertTrue(solver.solve_only_column_squares(self.p) > 0)
+
+        with self.subTest("Solve some only squares by box"):
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.assertTrue(solver.solve_only_box_squares(self.p) > 0)
+
+        with self.subTest("Solve using only squares (all)"):
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.assertTrue(solver.solve_only_squares(self.p))
+            self.assertTrue(self.p.is_solved())
+
+        with self.subTest("Solve using single possibilities + only squares (all)"):
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[1]['puzzle'])
+            solver.solve_single_possibilities(self.p)
+            solver.solve_only_squares(self.p)
+            self.assertTrue(self.p.is_solved())
+
         return
 
     def test_all_solvers(self):

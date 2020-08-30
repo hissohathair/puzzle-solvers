@@ -100,6 +100,10 @@ class ConstraintPuzzle(object):
         """Returns max value for a cell, which is the grid size"""
         return self._max_cell_value
 
+    def complete_set(self):
+        """Returns the set of all required values"""
+        return self._complete_set
+
     def init_puzzle(self, starting_grid):
         """Initializes a puzzle grid based on contents of `starting_grid`
 
