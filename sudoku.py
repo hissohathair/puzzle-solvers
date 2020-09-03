@@ -5,7 +5,6 @@
 #
 
 import puzzlegrid as pg
-from functools import wraps
 
 DEFAULT_BOX_SIZE = 3
 
@@ -158,48 +157,31 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
 SOLVERS = dict()
 
 
-def solver(func):
+def register_solver(cls):
     """Register method as a solver"""
-    SOLVERS[func.__name__] = func
-    return func
+    idx = cls.__name__.replace('Solver', '').lower()
+    SOLVERS[idx] = cls
+    return cls
 
 
-class SudokuSolver(pg.ConstraintSolver):
-    def __init__(self, method='solve_backtracking'):
-        """Initialize SudokuSolver, and optionally nominate preferred solution
-
-        The support methods are:
-            backtracking:           Simple backtracking
-            constraintpropogation:  Backtracking with constraint propogation
-        """
-        super().__init__()
-
-        self.max_depth = 0
-        self.backtrack_count = 0
-
-        if method in SOLVERS:
-            self._solver = eval(f"self.{method}")
-        else:
-            raise ValueError(f"Unknown method {method}")
-        return
+@register_solver
+class BacktrackingSolver(pg.ConstraintSolver):
+    """Solve a Sudoku puzzle using backtracking"""
 
     def solve(self, puzzle):
-        """Calls the solving method selected at initialization
+        """Solve the puzzle
 
+        Should always return True (backtracking always works...eventually).
         Will raise an exception if an already solved puzzle is passed
         """
         assert(not puzzle.is_solved())
         self.max_depth = 0
         self.backtrack_count = 0
-        return self._solver(puzzle)
+        return self._solve_backtracking(puzzle)
 
-    @solver
-    def solve_backtracking(self, puzzle, depth=0):
-        """Implements a simple "naive" back tracking solution
+    def _solve_backtracking(self, puzzle, depth=0):
+        """Internal method called recursively"""
 
-        It's naive in the sense that it doesn't optimise its search for the
-        next cell, just goes through from top left to bottom right.
-        """
         if puzzle.num_empty_cells() == 0:
             return True
 
@@ -209,7 +191,7 @@ class SudokuSolver(pg.ConstraintSolver):
         x, y = puzzle.find_empty_cell()
         for val in puzzle.get_allowed_values(x, y):
             puzzle.set(x, y, val)
-            if self.solve_backtracking(puzzle, depth=depth + 1):
+            if self._solve_backtracking(puzzle, depth=depth + 1):
                 return True
             else:
                 puzzle.clear(x, y)
@@ -217,11 +199,18 @@ class SudokuSolver(pg.ConstraintSolver):
 
         return False
 
-    @solver
-    def solve_constraintpropogation(self, puzzle, depth=0):
-        """Implements back tracking solution while taking advantage of constraint
-        propogation
-        """
+
+@register_solver
+class ConstraintPropogationSolver(BacktrackingSolver):
+    """Solve a Sudoku puzzle using constraint propogation and backtracking.
+
+    Overrides the parent class's simple backtracking with a method that
+    considers the constraints being updated in the puzzle class.
+    """
+
+    def _solve_backtracking(self, puzzle, depth=0):
+        """Internal method called recursively"""
+
         if puzzle.num_empty_cells() <= 0:
             return True
 
@@ -238,7 +227,7 @@ class SudokuSolver(pg.ConstraintSolver):
 
         for val in puzzle.get_allowed_values(x, y):
             puzzle.set(x, y, val)
-            if self.solve_constraintpropogation(puzzle, depth=depth + 1):
+            if self._solve_backtracking(puzzle, depth=depth + 1):
                 return True
             else:
                 puzzle.clear(x, y)
@@ -246,10 +235,21 @@ class SudokuSolver(pg.ConstraintSolver):
 
         return False
 
-    @solver
-    def solve_single_possibilities(self, puzzle):
-        """Attempt to solve the puzzle by finding cells with single possibilities
 
+@register_solver
+class SinglePossibilitiesSolver(pg.ConstraintSolver):
+    """Attempt to solve the puzzle by finding cells with single possibilities"""
+
+    def solve(self, puzzle):
+        """Solve the puzzle. Return True if solved, False otherwise.
+
+        This method can only solve very simple puzzles on its own.
+        """
+        assert(not puzzle.is_solved())
+        return self._solve_single_possibilities(puzzle)
+
+    def _solve_single_possibilities(self, puzzle):
+        """
         Single possibilities are those cells for which there is only one
         possible value, all others already exist in that row, column or box.
         This is sometimes enough to solve very easy Sudoku puzzles.
@@ -270,14 +270,20 @@ class SudokuSolver(pg.ConstraintSolver):
 
         return puzzle.is_solved()
 
-    @solver
-    def solve_only_squares(self, puzzle):
-        """Find cases where there is only one cell in a group that can take a value
 
-        A group is a row, column, or box. Calls the group-specific methods below.
-        Returns True if puzzle is solved.
+@register_solver
+class OnlySquaresSolver(pg.ConstraintSolver):
+    """Attempt to solve the puzzle by finding values that have only one possible
+    cell location that they can go into."""
+
+    def solve(self, puzzle):
+        """Solve the puzzle. Return True if solved, False otherwise.
+
+        This method can solve easy to intermediate puzzles on its own, but
+        will struggle with hard or difficult puzzles.
         """
 
+        # A group is a row, column, or box. Calls the group-specific methods below.
         # Keeps trying until the method fails to solve any new cells
         num_cells_updated = 1
         while num_cells_updated > 0:
@@ -293,7 +299,7 @@ class SudokuSolver(pg.ConstraintSolver):
         """
         num_cells_updated = 0
         for x in range(puzzle.max_value()):
-            # What *hasn't* this row got?
+            # What hasn't this row got?
             missing = puzzle.complete_set() - set(puzzle.get_row_values(x))
 
             # How many places on this row could each missing value go?
@@ -315,7 +321,7 @@ class SudokuSolver(pg.ConstraintSolver):
         """Find cases where there is only one cell that can take a particular
         value for the column
 
-        Returns True if puzzle solved, False otherwise.
+        Returns number of cells solved this call.
         """
         num_cells_updated = 0
         for y in range(puzzle.max_value()):
@@ -341,7 +347,7 @@ class SudokuSolver(pg.ConstraintSolver):
         """Find cases where there is only one cell that can take a particular
         value for the box
 
-        Returns True if puzzle solved, False otherwise.
+        Returns number of cells solved this call.
         """
         num_cells_updated = 0
         for box in range(puzzle.max_value()):
@@ -365,16 +371,52 @@ class SudokuSolver(pg.ConstraintSolver):
 
         return num_cells_updated
 
-    def solve_using_combination(self, puzzle):
-        """Try single possibilities first, then constraint propogation"""
-        if self.solve_single_possibilities(puzzle):
-            return True
-        elif self.solve_only_squares(puzzle):
-            return True
-        else:
-            return self.solve_constraintpropogation(puzzle)
 
-        return puzzle.is_solved()
+@register_solver
+class CombinationSolver(ConstraintPropogationSolver):
+    """Solves a Sudoku puzzle using a combination of deductive logic and
+    backtracking with constraint propogation."""
+
+    def solve(self, puzzle):
+        """Try single possibilities first, then constraint propogation"""
+        self.deductive_loops = 0
+
+        # Two deductive solver classes
+        slv1 = SinglePossibilitiesSolver()
+        slv2 = OnlySquaresSolver()
+
+        # Keep trying the deductive logic until they stop updating cells
+        num_cells_updated = 1
+        while num_cells_updated > 0:
+            self.deductive_loops += 1
+            num_cells_updated = 0
+            num_empty_cells = puzzle.num_empty_cells()
+
+            if slv1.solve(puzzle):
+                return True
+            elif slv2.solve(puzzle):
+                return True
+
+            num_cells_updated = num_empty_cells - puzzle.num_empty_cells()
+
+        # Dropped out of the loop, so puzzle not solved -- fall back to CP
+        return super().solve(puzzle)
+
+
+class SudokuSolver(pg.ConstraintSolver):
+    """Solves a Sudoku puzzle using some method implemented by one of the solver
+    classes"""
+
+    def __init__(self, method="backtracking"):
+        super().__init__()
+        if method not in SOLVERS:
+            raise ValueError(f"Method {method} is not a known Solver class")
+
+        self.solver = eval(f"SOLVERS['{method}']()")
+        return
+
+    def solve(self, puzzle):
+        return self.solver.solve(puzzle)
 
 
 # Some puzzles for testing
