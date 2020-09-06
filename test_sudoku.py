@@ -395,6 +395,18 @@ class TestSolver(unittest.TestCase):
 
         return
 
+    def test_two_out_of_three(self):
+        """Test the "2 out of 3" strategy"""
+        solver = su.TwoOutofThreeSolver()
+        self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+        num_empty = self.p.num_empty_cells()
+
+        # This one can't actually solve the first puzzle, but can solve a
+        # few cells
+        solver.solve(self.p)
+        self.assertTrue(self.p.num_empty_cells() < num_empty)
+        return
+
     def test_all_solvers(self):
         """Test that all available solvers are supported"""
         for x in su.SOLVERS:

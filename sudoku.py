@@ -5,6 +5,7 @@
 #
 
 import puzzlegrid as pg
+import collections
 
 DEFAULT_BOX_SIZE = 3
 
@@ -142,7 +143,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
 
         css_class = "sudoku"
         if self.is_solved():
-            css_class += " sudoku-solved"
+            css_class += " solved"
 
         ret = '<table class="{}"><tr>{}</tr></table>'.format(
             css_class,
@@ -373,9 +374,121 @@ class OnlySquaresSolver(pg.ConstraintSolver):
 
 
 @register_solver
+class TwoOutofThreeSolver(pg.ConstraintSolver):
+    """Attempt to solve cells using the "two out of three" strategy"""
+
+    def solve(self, puzzle):
+        """Attempt to solve, returning True if puzzle solved."""
+        num_cells_updated = 1
+        while num_cells_updated > 0:
+            num_cells_updated = self.solve_two_out_of_three_by_rows(puzzle) + self.solve_two_out_of_three_by_columns(puzzle)
+        return puzzle.is_solved()
+
+    def solve_two_out_of_three_by_rows(self, puzzle):
+        """Take 3 rows at a time, and find digits that are solved in 2 of
+        them. This narrows down to the third row, and one box.
+        """
+        num_cells_updated = 0
+
+        # Take 3 rows at a time (the box size)
+        bs = puzzle.box_size()
+        for x in range(0, puzzle.max_value(), bs):
+            solved_cells = []
+            for i in range(bs):
+                solved_cells += puzzle.get_row_values(x + i)
+
+            # Which values appear twice, and therefore missing in 1 row only?
+            counter = collections.Counter(solved_cells)
+            for val in [x for x in counter.keys() if counter[x] == bs - 1]:
+                # Which row is missing the val? Which box?
+                rows = set(range(x, x + bs))
+                boxes = set(range(bs))
+                for i in range(bs):
+                    row_values = puzzle.get_row_values(x + i)
+                    if val in row_values:
+                        rows.remove(x + i)
+                        for y in range(puzzle.max_value()):
+                            if puzzle.get(x + i, y) == val:
+                                boxes.remove(y // bs)
+
+                # Lordy. OK, at least now we have 1 row and 3 cells which *could*
+                # take the value val. See if there is only 1 cell to put it in
+                assert(len(rows) == 1)
+                assert(len(boxes) == 1)
+                row, = rows
+                box, = boxes
+                cells = []
+                for y in range(box * bs, (box * bs) + bs):
+                    if puzzle.is_allowed_value(row, y, val):
+                        cells.append((row, y))
+
+                # If there's only one cell available, it must be where val belongs
+                if len(cells) == 1:
+                    i, j = cells[0]
+                    puzzle.set(i, j, val)
+                    num_cells_updated += 1
+
+                # print(f"{val} in 2/3 rows from {x}-{x+2} missing from {rows} must be in {cells}")
+
+        return num_cells_updated
+
+    def solve_two_out_of_three_by_columns(self, puzzle):
+        """Take 3 cols at a time, and find digits that are solved in 2 of
+        them. This narrows down to the third row, and one box.
+        """
+        num_cells_updated = 0
+
+        # Take 3 cols at a time (the box size)
+        bs = puzzle.box_size()
+        for y in range(0, puzzle.max_value(), bs):
+            solved_cells = []
+            for j in range(bs):
+                solved_cells += puzzle.get_column_values(y + j)
+
+            # Which values appear twice, and therefore missing in 1 row only?
+            counter = collections.Counter(solved_cells)
+            for val in [v for v in counter.keys() if counter[v] == bs - 1]:
+                # Which column is missing the val? Which box?
+                cols = set(range(y, y + bs))
+                boxes = set(range(bs))
+                for j in range(bs):
+                    col_values = puzzle.get_column_values(y + j)
+                    if val in col_values:
+                        cols.remove(y + j)
+                        for x in range(puzzle.max_value()):
+                            if puzzle.get(x, y + j) == val:
+                                boxes.remove(x // bs)
+
+                # Lordy. OK, at least now we have 1 column and 3 cells which *could*
+                # take the value val. See if there is only 1 cell to put it in
+                assert(len(cols) == 1)
+                assert(len(boxes) == 1)
+                col, = cols
+                box, = boxes
+                cells = []
+                for x in range(box * bs, (box * bs) + bs):
+                    if puzzle.is_allowed_value(x, col, val):
+                        cells.append((x, col))
+
+                # If there's only one cell available, it must be where val belongs
+                if len(cells) == 1:
+                    i, j = cells[0]
+                    puzzle.set(i, j, val)
+                    num_cells_updated += 1
+
+                # print(f"{val} in 2/3 cols from {y}-{y+2} missing from {cols} must be in {cells}")
+
+        return num_cells_updated
+
+
+@register_solver
 class CombinationSolver(ConstraintPropogationSolver):
     """Solves a Sudoku puzzle using a combination of deductive logic and
     backtracking with constraint propogation."""
+
+    def __init__(self, use_backtracking=True):
+        self.use_backtracking = use_backtracking
+        return
 
     def solve(self, puzzle):
         """Try single possibilities first, then constraint propogation"""
@@ -384,6 +497,7 @@ class CombinationSolver(ConstraintPropogationSolver):
         # Two deductive solver classes
         slv1 = SinglePossibilitiesSolver()
         slv2 = OnlySquaresSolver()
+        slv3 = TwoOutofThreeSolver()
 
         # Keep trying the deductive logic until they stop updating cells
         num_cells_updated = 1
@@ -396,11 +510,16 @@ class CombinationSolver(ConstraintPropogationSolver):
                 return True
             elif slv2.solve(puzzle):
                 return True
+            elif slv3.solve(puzzle):
+                return True
 
             num_cells_updated = num_empty_cells - puzzle.num_empty_cells()
 
         # Dropped out of the loop, so puzzle not solved -- fall back to CP
-        return super().solve(puzzle)
+        if self.use_backtracking:
+            return super().solve(puzzle)
+        else:
+            return puzzle.is_solved()
 
 
 class SudokuSolver(pg.ConstraintSolver):
