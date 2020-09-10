@@ -3,6 +3,7 @@
 import unittest
 import puzzlegrid as pg
 import sudoku as su
+import os
 
 BOX_SIZE = 3
 
@@ -322,7 +323,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_all_sample_puzzles(self):
-        """Loads all the sample puzzles to check for formattign and validity"""
+        """Loads all the sample puzzles to check for formatting and validity"""
         for puz in su.SAMPLE_PUZZLES:
             with self.subTest(puz["label"]):
                 self.p.init_puzzle(puz["puzzle"])
@@ -346,8 +347,15 @@ class TestSolver(unittest.TestCase):
         return
 
     def test_backtracking(self):
-        """Test the backtracking solution (default)"""
-        solver = su.SudokuSolver()
+        """Test the backtracking solution"""
+        solver = su.BacktrackingSolver()
+        self.assertTrue(solver.solve(self.p))
+        self.assertTrue(self.p.is_solved())
+        return
+
+    def test_constraing_propogation(self):
+        """Test the backtracking + constraint propogation solution"""
+        solver = su.ConstraintPropogationSolver()
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
         return
@@ -355,19 +363,14 @@ class TestSolver(unittest.TestCase):
     def test_single_possibilities(self):
         """The 'kids' puzzle can be solved using single possibilities only"""
         self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
-        solver = su.SudokuSolver(method='solve_single_possibilities')
-        self.assertTrue(solver.solve_single_possibilities(self.p))
+        solver = su.DeductiveSolver()
+        self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
-
-        # Not expecting any others to work
-        self.p.init_puzzle(su.SAMPLE_PUZZLES[1]['puzzle'])
-        self.assertFalse(solver.solve_single_possibilities(self.p))
-        self.assertFalse(self.p.is_solved())
         return
 
     def test_only_squares(self):
         """Solve a puzzle using 'only squares' technique"""
-        solver = su.SudokuSolver()
+        solver = su.DeductiveSolver()
 
         with self.subTest("Solve some only squares by row"):
             self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
@@ -383,15 +386,21 @@ class TestSolver(unittest.TestCase):
 
         with self.subTest("Solve using only squares (all)"):
             self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
-            self.assertTrue(solver.solve_only_squares(self.p))
+            self.assertTrue(solver.solve(self.p))
             self.assertTrue(self.p.is_solved())
 
-        with self.subTest("Solve using single possibilities + only squares (all)"):
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[1]['puzzle'])
-            solver.solve_single_possibilities(self.p)
-            solver.solve_only_squares(self.p)
-            self.assertTrue(self.p.is_solved())
+        return
 
+    def test_two_out_of_three(self):
+        """Test the "2 out of 3" strategy"""
+        solver = su.DeductiveSolver()
+        self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+        num_empty = self.p.num_empty_cells()
+
+        # This one can't actually solve the first puzzle, but can solve a
+        # few cells
+        solver.solve(self.p)
+        self.assertTrue(self.p.num_empty_cells() < num_empty)
         return
 
     def test_all_solvers(self):
@@ -402,6 +411,20 @@ class TestSolver(unittest.TestCase):
             with self.subTest(f"Method {x}"):
                 self.assertTrue(solver.solve(p))
                 self.assertTrue(p.is_solved())
+        return
+
+    @unittest.skipUnless(os.environ.get('SUDOKU_LONG_TESTS', False), 'Long running test')
+    def test_all_solvers_all_puzzles(self):
+        """Test that all available solvers can solve all test puzzles"""
+        for x in su.SOLVERS:
+            if x == 'backtracking':
+                continue
+            solver = su.SudokuSolver(method=x)
+            for p in su.SAMPLE_PUZZLES:
+                with self.subTest(f"Method {x} on puzzle {p['label']}"):
+                    puzzle = su.SudokuPuzzle(starting_grid=p['puzzle'])
+                    self.assertTrue(solver.solve(puzzle))
+                    self.assertTrue(puzzle.is_solved())
         return
 
 
