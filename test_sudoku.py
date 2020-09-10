@@ -323,7 +323,7 @@ class TestSudoku(unittest.TestCase):
         return
 
     def test_all_sample_puzzles(self):
-        """Loads all the sample puzzles to check for formattign and validity"""
+        """Loads all the sample puzzles to check for formatting and validity"""
         for puz in su.SAMPLE_PUZZLES:
             with self.subTest(puz["label"]):
                 self.p.init_puzzle(puz["puzzle"])
