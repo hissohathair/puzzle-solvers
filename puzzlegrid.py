@@ -5,6 +5,7 @@
 #
 
 import timeit
+import copy
 
 DEFAULT_PUZZLE_SIZE = 9
 MAX_PUZZLE_SIZE = 25
@@ -343,7 +344,14 @@ class ConstraintPuzzle(object):
 
     def is_solved(self):
         """Returns True if there are no empty cells left, and the puzzle is valid"""
-        return self.is_puzzle_valid() and self.num_empty_cells() == 0
+        if self.is_puzzle_valid():
+            for i in range(self.max_value()):
+                for j in range(self.max_value()):
+                    if self.is_empty(i, j):
+                        return False
+            return True
+        else:
+            return False
 
     def as_grid(self):
         """Return a string representation of the puzzle as a 2D grid"""
@@ -377,6 +385,18 @@ class ConstraintSolver(object):
         raise NotImplementedError("solve() should be implemented by child class")
 
 
+def has_same_clues(a, b):
+    """Returns true if the non empty cells in a have the same value in b"""
+    if a.max_value() != b.max_value():
+        return False
+
+    for i in range(a.max_value()):
+        for j in range(a.max_value()):
+            if not a.is_empty(i, j) and a.get(i, j) != b.get(i, j):
+                return False
+    return True
+
+
 class PuzzleTester(object):
     """Track puzzle benchmarking stats"""
 
@@ -389,6 +409,7 @@ class PuzzleTester(object):
                             ConstraintPuzzle
             test_samples:   Number of times to repeat each test case
         """
+        self.anti_cheat_checking = False
         self._puzzle_class = puzzle_class
         self._test_samples = test_samples
         self._test_cases = []
@@ -451,8 +472,14 @@ class PuzzleTester(object):
         """
         # p = self._puzzle_class(starting_grid=test_case['puzzle'])
         puzzle.init_puzzle(test_case['puzzle'])
+        original = copy.deepcopy(puzzle)
         solver.solve(puzzle)
-        self._last_was_solved = puzzle.is_solved()
+        if not self.anti_cheat_checking:
+            self._last_was_solved = puzzle.is_solved()
+        elif has_same_clues(original, puzzle):
+            self._last_was_solved = puzzle.is_solved()
+        else:
+            self._last_was_solved = False
         return self._last_was_solved
 
     def run_tests(self, solver, label, callback=None):
@@ -510,3 +537,16 @@ class PuzzleTester(object):
     def get_test_results(self):
         """Return the test results structure"""
         return self._results
+
+    def get_test_labels(self):
+        """Return the test labels accumulated so far"""
+        return set(self._results.keys()) - set(self._rkeys)
+
+    def set_test_results(self, results):
+        """Initialise the test results structure.
+
+        Useful for loading previously saved times from a Pandas DataFrame:
+            pt.set_test_results(df.to_dict('list'))
+        """
+        self._results = results
+        return

@@ -199,6 +199,19 @@ class TestPuzzleGrid(unittest.TestCase):
         self.p.init_puzzle(SOLVED_PUZZLE)
         self.assertEqual(SOLVED_STRING, str(self.p))
 
+    def test_is_solved(self):
+        """Check that is_solved is not so easily fooled"""
+        self.p.init_puzzle(TEST_PUZZLE)
+        self.assertFalse(self.p.is_solved())
+
+        self.p.init_puzzle(SOLVED_PUZZLE)
+        self.assertTrue(self.p.is_solved())
+
+        self.p.init_puzzle(TEST_PUZZLE)
+        self.p._num_empty_cells = 0
+        self.assertFalse(self.p.is_solved())
+        return
+
 
 class TestSolver(unittest.TestCase):
     def test_class_init(self):
