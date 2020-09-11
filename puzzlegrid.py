@@ -350,6 +350,7 @@ class ConstraintPuzzle(object):
         blurb = [["-" if v is None else v for v in row] for row in self._grid]
         return "\n".join(" ".join(map(str, sl)) for sl in blurb)
 
+    # TODO: Should really do __repr__ apparently: https://stackoverflow.com/questions/1436703/difference-between-str-and-repr
     def __str__(self):
         """Return a flat string representation of the puzzle"""
         return "".join([int2char(i) if i else "." for sublist in self._grid for i in sublist])
