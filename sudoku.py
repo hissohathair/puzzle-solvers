@@ -6,6 +6,7 @@
 
 import puzzlegrid as pg
 import collections
+import pycosat
 
 DEFAULT_BOX_SIZE = 3
 
@@ -510,6 +511,99 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 # print(f"{val} in 2/3 cols from {y}-{y+2} missing from {cols} must be in {cells}")
 
         return num_cells_updated
+
+
+def _build_sat_clause(mv, i, j, d):
+    """Builds a "clause" that cell(i, j) has value d"""
+    ret = (mv ** 2) * (i - 1) + mv * (j - 1) + d
+    assert ret != 0, f"ret={ret} :: mv={mv}, ij={(i,j)}, d={d}"
+    return ret
+
+
+@register_solver
+class SATSolver(pg.ConstraintSolver):
+    """Solves Sudoku puzzle as a Boolean Satisfiability (SAT) problem.
+
+    Credit: https://github.com/taufanardi/sudoku-sat-solver
+    """
+
+    def solve(self, puzzle):
+        """Converts puzzle into an SAT problem, then uses pycosat to solve"""
+        assert not puzzle.is_solved()
+
+        # Locals - accessed by sub-methods below
+        mv = puzzle.max_value()  # mv: Max Value of a digit in a cell (e.g. 9)
+        sz = mv + 1              # sz: Size of puzzle, always mv + 1 (e.g. 10)
+        v = _build_sat_clause    # v: Function to build SAT clause
+
+        # Actual solver
+        clauses = self.get_sat_clauses(puzzle)
+        solset = pycosat.solve(clauses)
+        if isinstance(solset, str):
+            # Got either "UNSAT" or "UNKNOWN" - either way, we failed
+            return False
+
+        # Write solution back into puzzle
+        solset = set(solset)
+
+        def read_cell(i, j):
+            """Return value of cell(i, j) based on solset"""
+            for d in range(1, sz):
+                if v(mv, i + 1, j + 1, d) in solset:
+                    return d
+
+        for m in puzzle.next_empty_cell():
+            puzzle.set(*m, read_cell(*m))
+
+        return puzzle.is_solved()
+
+    def get_sat_clauses(self, puzzle):
+        """The SAT clauses are the same for any given puzzle size"""
+
+        # Locals - accessed by sub-methods below
+        mv = puzzle.max_value()  # mv: Max Value of a digit in a cell
+        sz = mv + 1              # sz: Size of puzzle, always mv + 1
+        bs = puzzle.box_size()   # bs: Box size (bs * bs == mv)
+        v = _build_sat_clause    # v: Function to build SAT clause
+        clauses = []             # clauses: List of SAT clauses
+
+        def valid(cells):
+            for i, xi in enumerate(cells):
+                for j, xj in enumerate(cells):
+                    if i < j:
+                        for d in range(1, sz):
+                            clauses.append([-v(mv, xi[0], xi[1], d), -v(mv, xj[0], xj[1], d)])
+
+        # For every cell...
+        for i in range(1, sz):
+            for j in range(1, sz):
+                # Cell must have a value (1 clause)
+                clauses.append([v(mv, i, j, d) for d in range(1, sz)])
+
+                # But cannot have two values (number of clauses is equal to the
+                # Nth triangle number -- n^2+n / 2, where n=mv-1)
+                for d in range(1, sz):
+                    for dp in range(d + 1, sz):
+                        clauses.append([-v(mv, i, j, d), -v(mv, i, j, dp)])
+
+        # Now ensure every row and column has unique values
+        for i in range(1, sz):
+            valid([(i, j) for j in range(1, sz)])
+            valid([(j, i) for j in range(1, sz)])
+
+        # Now ensure every box has unique values
+        for i in range(1, sz, bs):
+            for j in range(1, sz, bs):
+                valid([(i + k % bs, j + k // bs) for k in range(mv)])
+
+        # For each clue, add a clause asserting that value must exist
+        for i in range(mv):
+            for j in range(mv):
+                d = puzzle.get(i, j)
+                if d:
+                    clauses.append([v(mv, i + 1, j + 1, d)])
+
+        return clauses
 
 
 class SudokuSolver(pg.ConstraintSolver):
