@@ -403,6 +403,39 @@ class TestSolver(unittest.TestCase):
         self.assertTrue(self.p.num_empty_cells() < num_empty)
         return
 
+    def test_sat(self):
+        """Test the Boolean SAT solver"""
+        solver = su.SATSolver()
+
+        # Correct clauses?
+        mv = self.p.max_value()
+        mp = mv - 1
+        every_cell_has_a_value = (mv ** 2)
+        no_cell_has_two_values = (mp ** 2 + mp) // 2
+        num_regions = mv * 3
+        regions_have_unique_values = no_cell_has_two_values * mv
+
+        # Assuming test puzzle is 9x9
+        assert every_cell_has_a_value == 81
+        assert no_cell_has_two_values == 36
+        assert num_regions == 27
+        assert regions_have_unique_values == 324
+
+        expected_clauses = every_cell_has_a_value * (1 + no_cell_has_two_values) + num_regions * regions_have_unique_values
+        assert expected_clauses == 11745
+
+        # Every puzzle clue counts for an additional clause
+        num_clues = self.p.num_cells() - self.p.num_empty_cells()
+        expected_clauses += num_clues
+
+        # Check that we generate correct number of clauses
+        self.assertEqual(expected_clauses, len(solver.get_sat_clauses(self.p)))
+
+        # Can solve?
+        self.assertTrue(solver.solve(self.p))
+        self.assertTrue(self.p.is_solved())
+        return
+
     def test_all_solvers(self):
         """Test that all available solvers are supported"""
         for x in su.SOLVERS:
