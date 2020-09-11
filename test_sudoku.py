@@ -334,6 +334,11 @@ class TestSudoku(unittest.TestCase):
         """String representations of puzzle grid"""
         self.assertTrue(len(self.p.__str__()) >= 81)
         self.assertTrue(len(self.p.as_html()) > 900)
+        self.assertTrue(len(self.p.as_html(show_possibilities=2)) > 950)
+
+        self.assertTrue(len(self.s.__str__()) >= 81)
+        self.assertTrue(len(self.s.as_html()) > 900)
+        self.assertTrue(len(self.s.as_html(show_possibilities=2)) > 900)
         return
 
 
@@ -399,8 +404,33 @@ class TestSolver(unittest.TestCase):
 
         # This one can't actually solve the first puzzle, but can solve a
         # few cells
-        solver.solve(self.p)
+        solver.solve_two_out_of_three(self.p)
         self.assertTrue(self.p.num_empty_cells() < num_empty)
+        return
+
+    def test_deductive(self):
+        """Test all deductives as a single class"""
+        with self.subTest("DeductiveSolver without backtracking"):
+            solver = su.DeductiveSolver(use_backtracking=False)
+
+            # Deductive without backtracking can solve TEST_PUZZLE
+            self.p.init_puzzle(TEST_PUZZLE)
+            self.assertTrue(solver.solve(self.p))
+            self.assertTrue(self.p.is_solved())
+
+            # Deductive without backtracking can NOT solve hard puzzle
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[-1]['puzzle'])
+            self.assertFalse(solver.solve(self.p))
+            self.assertFalse(self.p.is_solved())
+
+        with self.subTest("DeductiveSolver wit backtracking"):
+            solver = su.DeductiveSolver(use_backtracking=True)
+
+            # Deductive with backtracking can solve hard puzzle
+            self.p.init_puzzle(su.SAMPLE_PUZZLES[-1]['puzzle'])
+            self.assertTrue(solver.solve(self.p))
+            self.assertTrue(self.p.is_solved())
+
         return
 
     def test_sat(self):
@@ -434,6 +464,24 @@ class TestSolver(unittest.TestCase):
         # Can solve?
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
+        return
+
+    def test_solver(self):
+        """SudokuSolver can be vaguely useful"""
+        with self.subTest("Default solver works"):
+            solver = su.SudokuSolver()
+            self.p.init_puzzle(TEST_PUZZLE)
+            self.assertTrue(solver.solve(self.p))
+
+        for m in su.SOLVERS:
+            with self.subTest(f"{m} solver works"):
+                solver = su.SudokuSolver(method=m)
+                self.p.init_puzzle(TEST_PUZZLE)
+                self.assertTrue(solver.solve(self.p))
+
+        with self.subTest("Bad solver raises exception"):
+            self.assertRaises(ValueError, su.SudokuSolver, method="banana")
+
         return
 
     def test_all_solvers(self):
@@ -471,11 +519,40 @@ class TestPuzzleTester(unittest.TestCase):
 
     def test_solver(self):
         """Use PuzzleTester class to test SudokuSolver"""
-        for m in su.SOLVERS:
-            with self.subTest(f"method: {m}"):
-                s = su.SudokuSolver(method=m)
-                self.assertEqual(8, self.pt.num_testcases())
-                self.assertEqual(8, self.pt.run_tests(s, m))
+        for ac in [False, True]:
+            for m in su.SOLVERS:
+                with self.subTest(f"method: {m}; anti-cheat: {ac}"):
+                    self.pt.anti_cheat_checking = ac
+                    s = su.SudokuSolver(method=m)
+                    self.assertEqual(8, self.pt.num_testcases())
+                    self.assertEqual(8, self.pt.run_tests(s, m))
+        return
+
+    def callback(self, a, b, c, d, e):
+        self._callback_called = True
+        return
+
+    def test_callback(self):
+        """Test that callback is called"""
+        self._callback_called = False
+        s = su.SudokuSolver()
+        self.pt.run_tests(s, 'default', callback=self.callback)
+        self.assertTrue(self._callback_called)
+        return
+
+    def test_results(self):
+        """Check test results"""
+        s = su.SudokuSolver()
+        self.assertEqual(3, len(self.pt.get_test_results()))
+        self.pt.run_tests(s, 'default')
+        self.assertEqual(4, len(self.pt.get_test_results()))
+        self.assertEqual(1, len(self.pt.get_test_labels()))
+        self.assertEqual({'default'}, self.pt.get_test_labels())
+
+        tr = self.pt.get_test_results()
+        newpt = pg.PuzzleTester(puzzle_class=su.SudokuPuzzle)
+        newpt.set_test_results(tr)
+        self.assertEqual(self.pt.get_test_results(), newpt.get_test_results())
         return
 
 

@@ -68,6 +68,14 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual(81, pg.count_clues(SOLVED_STRING))
         return
 
+    def test_has_same_clues(self):
+        """We can verify a solution is derived from a puzzle"""
+        puzzle = pg.ConstraintPuzzle(starting_grid=TEST_PUZZLE)
+        solution = pg.ConstraintPuzzle(starting_grid=SOLVED_PUZZLE)
+        self.assertTrue(pg.has_same_clues(puzzle, solution))
+        self.assertFalse(pg.has_same_clues(solution, puzzle))
+        return
+
 
 class TestPuzzleGrid(unittest.TestCase):
     def setUp(self):
@@ -100,6 +108,16 @@ class TestPuzzleGrid(unittest.TestCase):
         with self.subTest("Out of range grids"):
             self.assertRaises(ValueError, pg.ConstraintPuzzle, 0)
             self.assertRaises(ValueError, pg.ConstraintPuzzle, 26)
+        return
+
+    def test_set(self):
+        """Correctly set values"""
+        self.p.set(1, 1, 1)
+        self.assertEqual(1, self.p.get(1, 1))
+
+        # Can over-write already set cell
+        self.p.set(1, 1, 1)
+        self.assertEqual(1, self.p.get(1, 1))
         return
 
     def test_get_set_and_clear(self):
@@ -147,6 +165,8 @@ class TestPuzzleGrid(unittest.TestCase):
         col = 2
         val = 2
         self.p.set(row, col, val)
+        self.assertEqual(val, self.p.get(row, col))
+        self.assertEqual({val}, self.p.get_allowed_values(row, col))
 
         self.assertTrue(self.p.is_allowed_value(row, col, val))
         self.assertTrue(self.p.is_allowed_value(row + 1, col + 1, val))
@@ -188,6 +208,11 @@ class TestPuzzleGrid(unittest.TestCase):
                 self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, p.num_cells())
                 self.assertTrue(p.is_puzzle_valid())
                 self.assertTrue(p.is_solved())
+
+        with self.subTest("Bad puzzle init"):
+            for i in [TEST_STRING, SOLVED_STRING]:
+                self.assertRaises(ValueError, self.p.init_puzzle, i[0:-1])
+
         return
 
     def test_as_string(self):
@@ -210,6 +235,16 @@ class TestPuzzleGrid(unittest.TestCase):
         self.p.init_puzzle(TEST_PUZZLE)
         self.p._num_empty_cells = 0
         self.assertFalse(self.p.is_solved())
+
+        self.p.init_puzzle(SOLVED_PUZZLE)
+        self.p._grid[0][0] = self.p._grid[0][1]
+        self.assertFalse(self.p.is_puzzle_valid())
+        return
+
+    def test_strings(self):
+        """String representations of puzzles"""
+        self.assertEqual(self.p.num_cells(), len(str(self.p)))
+        self.assertEqual(self.p.num_cells() * 2 - 1, len(self.p.as_grid()))
         return
 
 
@@ -248,6 +283,17 @@ class TestPuzzleTester(unittest.TestCase):
         Add some test cases OK. We can't test running it because the solver
         is an abstract base class
         """
+        self.pt.add_testcases(self.tc)
+        self.assertEqual(4, self.pt.num_testcases())
+
+        # Add some bad cases
+        self.assertRaises(ValueError, self.pt.add_testcases, 'banana')
+        self.assertRaises(ValueError, self.pt.add_testcases, ['banana', 'vodka'])
+
+        # Add test cases without labels
+        self.pt.drop_testcases()
+        for tc in self.tc:
+            del tc['label']
         self.pt.add_testcases(self.tc)
         self.assertEqual(4, self.pt.num_testcases())
         return
