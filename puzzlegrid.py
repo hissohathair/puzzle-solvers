@@ -18,7 +18,7 @@ CELL_VALUES = '123456789ABCDEFGHIJKLMNOP'
 def build_empty_grid(grid_size):
     """Builds a grid_size X grid_size matrix, with each cell set to EMPTY_CELL"""
     assert not EMPTY_CELL
-    assert grid_size >= MIN_PUZZLE_SIZE
+    assert MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE
     ret = [[] for x in range(grid_size)]
     for x in range(grid_size):
         ret[x] = [EMPTY_CELL for y in range(grid_size)]
@@ -58,6 +58,7 @@ def count_clues(puzzle_grid):
         return len(puzzle_grid) - puzzle_grid.count(".")
 
 
+# TODO: Move this, it's no longer consistent with from_string
 def from_file(filename, level="(not set)"):
     """Load test cases from file, return as list of dicts"""
     ret = []
@@ -70,10 +71,74 @@ def from_file(filename, level="(not set)"):
     return ret
 
 
+def from_string(puzzle_string):
+    """Takes a string and converts it to a list of lists of integers.
+
+    Puzzles are expected to be 2D arrays of ints, but it's convenient to store
+    test data as strings (e.g. '89.4...5614.35..9.......8..9.....'). So this
+    will split a string (using period for "empty cell") and return the 2D array.
+
+    Args:
+        puzzle_string: A string with 1 character per cell. Use uppercase letters
+            for integer values >= 10 (A=10; B=11; etc). Trailing blanks are
+            stripped.
+
+    Returns:
+        A list of lists of ints.
+
+    Raises:
+        ValueError: puzzle_string length is not a square (e.g. 4, 9, 16, 25);
+            or a character value in string is out of range.
+    """
+    s = puzzle_string.rstrip()
+    grid_size = int(len(s) ** (1 / 2))
+    if not (MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE):
+        raise ValueError(f"puzzle_string is not square (len={len(puzzle_string)}")
+
+    ret = build_empty_grid(grid_size)
+    for i, ch in enumerate(s):
+        v = char2int(ch)
+        if v and 1 <= v <= grid_size:
+            ret[i // grid_size][i % grid_size] = v
+        elif v:
+            raise ValueError(f"Cell value {v} at {i} out of range [1:{grid_size}]")
+
+    return ret
+
+
 class ConstraintPuzzle(object):
-    def __init__(self, grid_size=DEFAULT_PUZZLE_SIZE, starting_grid=None):
-        """Creates a puzzle grid, `grid_size` X `grid_size` (default 9)"""
-        if grid_size < MIN_PUZZLE_SIZE or grid_size > MAX_PUZZLE_SIZE:
+    def __init__(self, grid_size=None, starting_grid=None):
+        """Creates a puzzle grid, `grid_size` X `grid_size` (default 9).
+
+        Dimensions are always square (ie. width==height==grid_size). If no
+        values are passed to constructor, will build an empty grid of size
+        DEFAULT_PUZZLE_SIZE (9).
+
+        Attributes:
+
+        Args:
+            starting_grid: A list of lists of integers (2D array of ints).
+                Pass None to start with an empty grid.
+            grid_size: The number of cells for the width and height of the
+                grid. Default value is 9, for a 9x9 grid (81 cells). If not
+                set, size is set to len(starting_grid), otherwise must be
+                consistent with len(starting_grid) as a check for "bad" data.
+
+        Raises:
+            ValueError: An inconsistency exists in the starting_grid;
+                or the grid_size is too small or too large (1 to 25)
+        """
+
+        # If a starting_grid is passed, that sets the size
+        if starting_grid and grid_size:
+            if len(starting_grid) != grid_size:
+                raise ValueError(f"starting_grid is not {grid_size}x{grid_size}")
+        elif starting_grid:
+            grid_size = len(starting_grid)
+        elif grid_size is None:
+            grid_size = DEFAULT_PUZZLE_SIZE
+
+        if not (MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE):
             raise ValueError(
                 f"grid_size={grid_size} outside allowed ranage [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]"
             )
@@ -106,40 +171,20 @@ class ConstraintPuzzle(object):
         return self._complete_set
 
     def init_puzzle(self, starting_grid):
-        """Initializes a puzzle grid based on contents of `starting_grid`
+        """Initializes a puzzle grid based on contents of starting_grid.
 
-        starting_grid:  Can be either a string or 2D array (list of lists of
-                        ints)
-        """
-        if isinstance(starting_grid, list):
-            self.init_puzzle_from_grid(starting_grid)
-        else:
-            self.init_puzzle_from_str(starting_grid)
-        return
+        Clears the existing puzzle and resets internal state (e.g. count of
+        empty cells remaining).
 
-    def init_puzzle_from_str(self, starting_grid):
-        """Initializes a puzzle grid from a flat string representation
+        Args:
+            starting_grid: A list of lists of integers (2D array of ints).
+                To help catch data errors, must be the same size as what the
+                instance was initialized for.
 
-        Example: '89.4...5614.35..9.......8..9.....'.
-        """
-        self.clear_all()
-
-        s = starting_grid.rstrip()  # convenient to strip trailing whitespace
-        if len(s) != self.num_cells():
-            raise ValueError(f"starting_grid needs {self.num_cells()}, got {len(s)}")
-
-        for i, ch in enumerate(s):
-            v = char2int(ch)
-            if v:
-                self.set(i // self._max_cell_value, i % self._max_cell_value, v)
-
-        return
-
-    def init_puzzle_from_grid(self, starting_grid):
-        """Initializes a puzzle grid to the 2D array passed in `starting_grid`
-
-        Raises ValueError exception if the new starting_grid is the wrong size,
-        or violates a constraint
+        Raises:
+            ValueError: Size of starting_grid (len) is not what was expected
+                from the initial grid_size; or constraint on cell values is
+                violated (e.g. dupicate value in a row)
         """
         self.clear_all()
 
@@ -162,7 +207,7 @@ class ConstraintPuzzle(object):
         return
 
     def num_empty_cells(self):
-        """Returns the number of empty cells remaining"""
+        """Returns the number of empty cells remaining."""
         return self._num_empty_cells
 
     def num_cells(self):
@@ -471,7 +516,10 @@ class PuzzleTester(object):
             solver:     Instance of a ConstraintSolver class with solve() method
         """
         # p = self._puzzle_class(starting_grid=test_case['puzzle'])
-        puzzle.init_puzzle(test_case['puzzle'])
+        if isinstance(test_case['puzzle'], str):
+            puzzle.init_puzzle(from_string(test_case['puzzle']))
+        else:
+            puzzle.init_puzzle(test_case['puzzle'])
         original = copy.deepcopy(puzzle)
         solver.solve(puzzle)
         if not self.anti_cheat_checking:

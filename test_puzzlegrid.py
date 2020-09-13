@@ -178,7 +178,7 @@ class TestPuzzleGrid(unittest.TestCase):
         """Load a Sudoku grid"""
 
         with self.subTest("Using unsolved puzzles"):
-            for i in [TEST_PUZZLE, TEST_STRING]:
+            for i in [TEST_PUZZLE, pg.from_string(TEST_STRING)]:
                 # Init existing puzzle instance
                 self.p.init_puzzle(i)
                 self.assertEqual(50, self.p.num_empty_cells())
@@ -194,7 +194,7 @@ class TestPuzzleGrid(unittest.TestCase):
                 self.assertFalse(p.is_solved())
 
         with self.subTest("Using solved puzzles"):
-            for i in [SOLVED_PUZZLE, SOLVED_STRING]:
+            for i in [SOLVED_PUZZLE, pg.from_string(SOLVED_STRING)]:
                 # Init existing puzzle instance
                 self.p.init_puzzle(i)
                 self.assertEqual(0, self.p.num_empty_cells())
@@ -210,7 +210,7 @@ class TestPuzzleGrid(unittest.TestCase):
                 self.assertTrue(p.is_solved())
 
         with self.subTest("Bad puzzle init"):
-            for i in [TEST_STRING, SOLVED_STRING]:
+            for i in [TEST_STRING, pg.from_string(SOLVED_STRING)]:
                 self.assertRaises(ValueError, self.p.init_puzzle, i[0:-1])
 
         return
@@ -251,7 +251,7 @@ class TestPuzzleGrid(unittest.TestCase):
 class TestSolver(unittest.TestCase):
     def test_class_init(self):
         """Test that class initializes"""
-        p = pg.ConstraintPuzzle(starting_grid=TEST_STRING)
+        p = pg.ConstraintPuzzle(starting_grid=pg.from_string(TEST_STRING))
         s = pg.ConstraintSolver()
         self.assertRaises(NotImplementedError, s.solve, p)
         return
@@ -300,7 +300,7 @@ class TestPuzzleTester(unittest.TestCase):
 
     def test_from_file(self):
         """test from_file func"""
-        tc = pg.from_file("data/hardest.txt")
+        tc = pg.from_file("data/sudoku_9x9/hardest.txt")
         self.pt.add_testcases(tc)
         self.assertEqual(11, self.pt.num_testcases())
         return

@@ -7,6 +7,7 @@
 import puzzlegrid as pg
 import collections
 import pycosat
+import math
 
 DEFAULT_BOX_SIZE = 3
 
@@ -18,6 +19,8 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         The size to pass is the `box_size` which is 3 for the standard 9x9
         puzzle, because the "boxes" are 3x3.
         """
+        if starting_grid:
+            box_size = int(math.sqrt(len(starting_grid)))
         grid_size = box_size * box_size
         super().__init__(grid_size=grid_size, starting_grid=None)
         self._box_size = box_size

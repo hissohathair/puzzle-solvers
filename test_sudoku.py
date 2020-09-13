@@ -5,7 +5,22 @@ import puzzlegrid as pg
 import sudoku as su
 import os
 
-BOX_SIZE = 3
+BOX_SIZE = su.DEFAULT_BOX_SIZE
+
+TEST_PUZZLE_STRINGS = [
+    # 4x4
+    '21...32....41...',
+    '42..1....12....3',
+    '.2....2.3.4.2..1',
+
+    # 9x9
+    '89.4...5614.35..9.......8..9.....2...8.965.4...1.....5..8.......3..21.7842...6.13',
+]
+
+SOLVED_PUZZLE_STRINGS = [
+    # 9x9
+    '893472156146358792275619834954183267782965341361247985518734629639521478427896513',
+]
 
 TEST_PUZZLE = [
     [8, 9, 0, 4, 0, 0, 0, 5, 6],
@@ -68,13 +83,20 @@ class TestSudoku(unittest.TestCase):
         """Class init makes a copy of starting grid"""
         x = 0
         y = 2
-        test_value = TEST_PUZZLE[x][y]
-        set_value = 3
-        self.assertNotEqual(test_value, set_value)  # test data error
+        new_value = 3
+        self.assertTrue(self.p.is_empty(x, y))  # test data error
+        self.assertNotEqual(self.p.get(x, y), new_value)  # test data error
 
-        self.p.set(0, 0, set_value)
-        self.assertEqual(self.p.get(0, 0), set_value)
-        self.assertNotEqual(self.p.get(0, 0), test_value)
+        # Change value -- puzzle but not original list should change
+        self.p.set(x, y, new_value)
+        self.assertEqual(new_value, self.p.get(x, y))
+        self.assertNotEqual(new_value, TEST_PUZZLE[x][y])
+
+        # Initialise all test puzzles, at different sizes
+        for i, puzzle in enumerate(TEST_PUZZLE_STRINGS):
+            with self.subTest(f"Test Puzzle {i} init"):
+                p = su.SudokuPuzzle(starting_grid=pg.from_string(puzzle))
+                self.assertTrue(p.is_puzzle_valid())
         return
 
     def test_class_init_empty(self):
@@ -326,7 +348,7 @@ class TestSudoku(unittest.TestCase):
         """Loads all the sample puzzles to check for formatting and validity"""
         for puz in su.SAMPLE_PUZZLES:
             with self.subTest(puz["label"]):
-                self.p.init_puzzle(puz["puzzle"])
+                self.p.init_puzzle(pg.from_string(puz["puzzle"]))
                 self.assertTrue(self.p.is_puzzle_valid())
         return
 
@@ -367,7 +389,7 @@ class TestSolver(unittest.TestCase):
 
     def test_single_possibilities(self):
         """The 'kids' puzzle can be solved using single possibilities only"""
-        self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+        self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
         solver = su.DeductiveSolver()
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
@@ -378,19 +400,19 @@ class TestSolver(unittest.TestCase):
         solver = su.DeductiveSolver()
 
         with self.subTest("Solve some only squares by row"):
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
             self.assertTrue(solver.solve_only_row_squares(self.p) > 0)
 
         with self.subTest("Solve some only squares by column"):
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
             self.assertTrue(solver.solve_only_column_squares(self.p) > 0)
 
         with self.subTest("Solve some only squares by box"):
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
             self.assertTrue(solver.solve_only_box_squares(self.p) > 0)
 
         with self.subTest("Solve using only squares (all)"):
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
             self.assertTrue(solver.solve(self.p))
             self.assertTrue(self.p.is_solved())
 
@@ -399,7 +421,7 @@ class TestSolver(unittest.TestCase):
     def test_two_out_of_three(self):
         """Test the "2 out of 3" strategy"""
         solver = su.DeductiveSolver()
-        self.p.init_puzzle(su.SAMPLE_PUZZLES[0]['puzzle'])
+        self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
         num_empty = self.p.num_empty_cells()
 
         # This one can't actually solve the first puzzle, but can solve a
@@ -419,7 +441,7 @@ class TestSolver(unittest.TestCase):
             self.assertTrue(self.p.is_solved())
 
             # Deductive without backtracking can NOT solve hard puzzle
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[-1]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[-1]['puzzle']))
             self.assertFalse(solver.solve(self.p))
             self.assertFalse(self.p.is_solved())
 
@@ -427,7 +449,7 @@ class TestSolver(unittest.TestCase):
             solver = su.DeductiveSolver(use_backtracking=True)
 
             # Deductive with backtracking can solve hard puzzle
-            self.p.init_puzzle(su.SAMPLE_PUZZLES[-1]['puzzle'])
+            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[-1]['puzzle']))
             self.assertTrue(solver.solve(self.p))
             self.assertTrue(self.p.is_solved())
 
