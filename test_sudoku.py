@@ -5,7 +5,6 @@ import puzzlegrid as pg
 import sudoku as su
 import os
 
-BOX_SIZE = su.DEFAULT_BOX_SIZE
 
 TEST_PUZZLE_STRINGS = [
     # 4x4
@@ -73,8 +72,8 @@ ILLEGAL_MOVES = [
 
 class TestSudoku(unittest.TestCase):
     def setUp(self):
-        self.p = su.SudokuPuzzle(BOX_SIZE, TEST_PUZZLE)
-        self.s = su.SudokuPuzzle(BOX_SIZE, SOLVED_PUZZLE)
+        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, TEST_PUZZLE)
+        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, SOLVED_PUZZLE)
         self.legal_moves = LEGAL_MOVES
         self.illegal_moves = ILLEGAL_MOVES
         return
@@ -369,8 +368,8 @@ class TestSolver(unittest.TestCase):
 
     def setUp(self):
         """Handy to have an unsolved (p) and already solved puzzle (s) for later tests"""
-        self.p = su.SudokuPuzzle(BOX_SIZE, TEST_PUZZLE)
-        self.s = su.SudokuPuzzle(BOX_SIZE, SOLVED_PUZZLE)
+        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, TEST_PUZZLE)
+        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, SOLVED_PUZZLE)
         return
 
     def test_backtracking(self):

@@ -144,6 +144,7 @@ class ConstraintPuzzle(object):
             )
 
         # Basic grid
+        self._grid_size = grid_size
         self._max_cell_value = grid_size
         self._grid = build_empty_grid(grid_size)
         self._num_empty_cells = grid_size * grid_size

@@ -7,32 +7,59 @@
 import puzzlegrid as pg
 import collections
 import pycosat
-import math
 
-DEFAULT_BOX_SIZE = 3
+
+DEFAULT_SUDOKU_SIZE = 9
 
 
 class SudokuPuzzle(pg.ConstraintPuzzle):
-    def __init__(self, box_size=DEFAULT_BOX_SIZE, starting_grid=None):
-        """Creates a Sudoku puzzle grid
+    def __init__(self, grid_size=None, starting_grid=None):
+        """Creates a Sudoku puzzle grid.
 
-        The size to pass is the `box_size` which is 3 for the standard 9x9
-        puzzle, because the "boxes" are 3x3.
+        The class will enforce the rules of standard Sudoku, meaning no
+        value can be repeated in a row, column, or box. If both grid_size and
+        starting_grid are set then they must be consistent (i.e. grid_size
+        must == len(starting_grid)), this is done as a data integrity check.
+        Otherwise the caller can define one param and the other will be set
+        to match.
+
+        Args:
+            grid_size: The width/height of the grid (default is 9). Must be a
+                square value (i.e. 1, 4, 9, 16, or 25) for Sudoku.
+            starting_grid: A list of lists of integers (2D array of ints) that
+                represents the starting clues.
+
+        Raises:
+            ValueError: There is an inconsistency in the grid_size and/or
+                starting_grid; or the starting clues violate a constraint.
         """
-        if starting_grid:
-            box_size = int(math.sqrt(len(starting_grid)))
-        grid_size = box_size * box_size
-        super().__init__(grid_size=grid_size, starting_grid=None)
-        self._box_size = box_size
 
-        # Sudoku puzzles have an extra constraint -- boxes cannot contain
-        # repeated values
+        # Set defaults -- caller can pass either or both params. If both
+        # passed, they need to be consistent
+        if grid_size and starting_grid:
+            if len(starting_grid) != grid_size:
+                raise ValueError(f"starting_grid is not {grid_size}x{grid_size}")
+        elif starting_grid:
+            grid_size = len(starting_grid)
+        elif grid_size is None:
+            grid_size = DEFAULT_SUDOKU_SIZE
+
+        # Start by initialising ConstraintPuzzle super, use it to calculate
+        # the box size. starting_grid has to be blank, because we're not ready
+        # to set the box constraints yet.
+        blank_grid = pg.build_empty_grid(grid_size)
+        super().__init__(grid_size=grid_size, starting_grid=blank_grid)
+        self._box_size = int(self._grid_size ** (1 / 2))
+        if self._box_size ** 2 != self._grid_size:
+            raise ValueError(f"grid_size={self._grid_size} is not a square")
+
+        # Super has initialised row and column constraints. Sudoku puzzles
+        # have an extra constraint -- boxes cannot contain repeated values.
+        # Need to re-initialise the grid to correctly set the box constraints,
+        # will then put the starting clues back in if they were passed.
         self._allowed_values_for_box = [
             set(self._complete_set) for i in range(grid_size)
         ]
-
-        # Only when initial constraint sets are initialized can we load the
-        # starting grid
         if starting_grid:
             self.init_puzzle(starting_grid)
         return
