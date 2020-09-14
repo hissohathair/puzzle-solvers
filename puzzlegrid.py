@@ -106,7 +106,7 @@ def from_string(puzzle_string):
     return ret
 
 
-class ConstraintPuzzle(object):
+class ConstraintPuzzle:
     def __init__(self, grid_size=None, starting_grid=None):
         """Creates a puzzle grid, `grid_size` X `grid_size` (default 9).
 
@@ -410,7 +410,7 @@ class ConstraintPuzzle(object):
         return "".join([int2char(i) if i else "." for sublist in self._grid for i in sublist])
 
 
-class ConstraintSolver(object):
+class ConstraintSolver:
     def __init__(self):
         """Initialize internal state, which is some basic stats counters
 
@@ -443,7 +443,7 @@ def has_same_clues(a, b):
     return True
 
 
-class PuzzleTester(object):
+class PuzzleTester:
     """Track puzzle benchmarking stats"""
 
     def __init__(self, puzzle_class=ConstraintPuzzle, test_samples=1):
