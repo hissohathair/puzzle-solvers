@@ -5,7 +5,7 @@ COVERAGE=coverage
 
 ALLMODULES=$(patsubst %.py, %.py, $(wildcard test_*.py))
 
-all: test coverage
+default: test
 
 test:
 		${RUNTEST} ${ALLMODULES}
@@ -14,6 +14,8 @@ coverage:
 		${COVERAGE} run -m unittest discover
 		${COVERAGE} report -m
 		${COVERAGE} html
+
+all: test coverage
 
 % : test_%.py
 		${RUNTEST} test_$@

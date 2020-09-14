@@ -16,69 +16,29 @@ TEST_PUZZLE_STRINGS = [
     '89.4...5614.35..9.......8..9.....2...8.965.4...1.....5..8.......3..21.7842...6.13',
 ]
 
-SOLVED_PUZZLE_STRINGS = [
+TEST_SOLUTION_STRINGS = [
     # 9x9
     '893472156146358792275619834954183267782965341361247985518734629639521478427896513',
 ]
 
-TEST_PUZZLE = [
-    [8, 9, 0, 4, 0, 0, 0, 5, 6],
-    [1, 4, 0, 3, 5, 0, 0, 9, 0],
-    [0, 0, 0, 0, 0, 0, 8, 0, 0],
-    [9, 0, 0, 0, 0, 0, 2, 0, 0],
-    [0, 8, 0, 9, 6, 5, 0, 4, 0],
-    [0, 0, 1, 0, 0, 0, 0, 0, 5],
-    [0, 0, 8, 0, 0, 0, 0, 0, 0],
-    [0, 3, 0, 0, 2, 1, 0, 7, 8],
-    [4, 2, 0, 0, 0, 6, 0, 1, 3],
-]
-SOLVED_PUZZLE = [
-    [8, 9, 3, 4, 7, 2, 1, 5, 6],
-    [1, 4, 6, 3, 5, 8, 7, 9, 2],
-    [2, 7, 5, 6, 1, 9, 8, 3, 4],
-    [9, 5, 4, 1, 8, 3, 2, 6, 7],
-    [7, 8, 2, 9, 6, 5, 3, 4, 1],
-    [3, 6, 1, 2, 4, 7, 9, 8, 5],
-    [5, 1, 8, 7, 3, 4, 6, 2, 9],
-    [6, 3, 9, 5, 2, 1, 4, 7, 8],
-    [4, 2, 7, 8, 9, 6, 5, 1, 3],
-]
-LEGAL_MOVES = [
-    [0, 2, 3],
-    [3, 3, 1],
-    [4, 4, 6],
-    [1, 6, 7],
-    [7, 3, 5],
-    [1, 8, 2],
-    [8, 2, 7],
-    [8, 6, 5],
-    [5, 0, 3],
-    [5, 7, 8],
-    [6, 4, 3],
-]
-ILLEGAL_MOVES = [
-    [0, 2, 8],
-    [0, 2, 1],
-    [3, 3, 2],
-    [3, 3, 4],
-    [2, 2, 4],
-    [3, 3, 6],
-    [0, 0, 9],
-    [0, 0, 1],
-    [2, 2, 4],
-    [2, 3, 4],
-]
+EASY_PUZZLE = pg.from_string("89.4...5614.35..9.......8..9.....2...8.965.4...1.....5..8.......3..21.7842...6.13")
+EASY_SOLUTION = pg.from_string("893472156146358792275619834954183267782965341361247985518734629639521478427896513")
+EASY_MOVES_LEGAL = [[0, 2, 3], [3, 3, 1], [4, 4, 6], [1, 6, 7], [7, 3, 5], [1, 8, 2], [8, 2, 7]]
+EASY_MOVES_ILLEGAL = [[0, 2, 8], [0, 2, 1], [3, 3, 2], [3, 3, 4], [2, 2, 4], [3, 3, 6], [0, 0, 9]]
+
+HARD_PUZZLE = pg.from_string("..8......1..6..49.5......7..7..4.....5.2.6...8..79..1..63.....1..5.73......9..75.")
+HARD_SOLUTION = pg.from_string("498157632137682495526439178671348529359216847842795316763524981915873264284961753")
 
 
 class TestSudoku(unittest.TestCase):
     def setUp(self):
-        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, TEST_PUZZLE)
-        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, SOLVED_PUZZLE)
-        self.legal_moves = LEGAL_MOVES
-        self.illegal_moves = ILLEGAL_MOVES
+        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, EASY_PUZZLE)
+        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, EASY_SOLUTION)
+        self.legal_moves = EASY_MOVES_LEGAL
+        self.illegal_moves = EASY_MOVES_ILLEGAL
         return
 
-    def test_class_init(self):
+    def test_class_init_copies(self):
         """Class init makes a copy of starting grid"""
         x = 0
         y = 2
@@ -89,13 +49,7 @@ class TestSudoku(unittest.TestCase):
         # Change value -- puzzle but not original list should change
         self.p.set(x, y, new_value)
         self.assertEqual(new_value, self.p.get(x, y))
-        self.assertNotEqual(new_value, TEST_PUZZLE[x][y])
-
-        # Initialise all test puzzles, at different sizes
-        for i, puzzle in enumerate(TEST_PUZZLE_STRINGS):
-            with self.subTest(f"Test Puzzle {i} init"):
-                p = su.SudokuPuzzle(starting_grid=pg.from_string(puzzle))
-                self.assertTrue(p.is_puzzle_valid())
+        self.assertNotEqual(new_value, EASY_PUZZLE[x][y])
         return
 
     def test_class_init_empty(self):
@@ -104,6 +58,15 @@ class TestSudoku(unittest.TestCase):
         for x in range(p.max_value()):
             for y in range(p.max_value()):
                 self.assertTrue(p.is_empty(x, y))
+        return
+
+    def test_puzzle_sizes(self):
+        """Different puzzle sizes are supported"""
+        # Initialise all test puzzles, at different sizes
+        for i, puzzle in enumerate(TEST_PUZZLE_STRINGS):
+            with self.subTest(f"Test Puzzle {i} init (len={len(puzzle)})"):
+                p = su.SudokuPuzzle(starting_grid=pg.from_string(puzzle))
+                self.assertTrue(p.is_puzzle_valid())
         return
 
     def test_class_init_raises_exception(self):
@@ -154,7 +117,7 @@ class TestSudoku(unittest.TestCase):
         """Clear and set a value for a cell"""
         x = 1
         y = 1
-        test_value = TEST_PUZZLE[x][y]
+        test_value = EASY_PUZZLE[x][y]
         self.assertTrue(test_value)  # test data error
 
         # Clear op
@@ -252,7 +215,7 @@ class TestSudoku(unittest.TestCase):
         for i in range(len(self.legal_moves)):
             with self.subTest(i=i):
                 m = self.legal_moves[i]
-                self.assertEqual(SOLVED_PUZZLE[m[0]][m[1]], m[2])  # test data error
+                self.assertEqual(EASY_SOLUTION[m[0]][m[1]], m[2])  # test data error
                 self.assertTrue(self.p.is_allowed_value(*m))
         return
 
@@ -368,8 +331,8 @@ class TestSolver(unittest.TestCase):
 
     def setUp(self):
         """Handy to have an unsolved (p) and already solved puzzle (s) for later tests"""
-        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, TEST_PUZZLE)
-        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, SOLVED_PUZZLE)
+        self.p = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, EASY_PUZZLE)
+        self.s = su.SudokuPuzzle(su.DEFAULT_SUDOKU_SIZE, EASY_SOLUTION)
         return
 
     def test_backtracking(self):
@@ -377,6 +340,7 @@ class TestSolver(unittest.TestCase):
         solver = su.BacktrackingSolver()
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
+        self.assertEqual(str(self.s), str(self.p))
         return
 
     def test_constraing_propogation(self):
@@ -384,14 +348,15 @@ class TestSolver(unittest.TestCase):
         solver = su.ConstraintPropogationSolver()
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
+        self.assertEqual(str(self.s), str(self.p))
         return
 
     def test_single_possibilities(self):
-        """The 'kids' puzzle can be solved using single possibilities only"""
-        self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
+        """The 'easy' puzzle can be solved using single possibilities only"""
         solver = su.DeductiveSolver()
-        self.assertTrue(solver.solve(self.p))
+        self.assertTrue(solver.solve_single_possibilities(self.p))
         self.assertTrue(self.p.is_solved())
+        self.assertEqual(str(self.s), str(self.p))
         return
 
     def test_only_squares(self):
@@ -399,28 +364,27 @@ class TestSolver(unittest.TestCase):
         solver = su.DeductiveSolver()
 
         with self.subTest("Solve some only squares by row"):
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
+            self.p.init_puzzle(EASY_PUZZLE)
             self.assertTrue(solver.solve_only_row_squares(self.p) > 0)
 
         with self.subTest("Solve some only squares by column"):
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
+            self.p.init_puzzle(EASY_PUZZLE)
             self.assertTrue(solver.solve_only_column_squares(self.p) > 0)
 
         with self.subTest("Solve some only squares by box"):
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
+            self.p.init_puzzle(EASY_PUZZLE)
             self.assertTrue(solver.solve_only_box_squares(self.p) > 0)
 
         with self.subTest("Solve using only squares (all)"):
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
-            self.assertTrue(solver.solve(self.p))
+            self.p.init_puzzle(EASY_PUZZLE)
+            self.assertTrue(solver.solve_only_squares(self.p))
             self.assertTrue(self.p.is_solved())
-
+            self.assertEqual(str(self.s), str(self.p))
         return
 
     def test_two_out_of_three(self):
         """Test the "2 out of 3" strategy"""
         solver = su.DeductiveSolver()
-        self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[0]['puzzle']))
         num_empty = self.p.num_empty_cells()
 
         # This one can't actually solve the first puzzle, but can solve a
@@ -434,24 +398,23 @@ class TestSolver(unittest.TestCase):
         with self.subTest("DeductiveSolver without backtracking"):
             solver = su.DeductiveSolver(use_backtracking=False)
 
-            # Deductive without backtracking can solve TEST_PUZZLE
-            self.p.init_puzzle(TEST_PUZZLE)
+            # Deductive without backtracking can solve EASY_PUZZLE
+            self.p.init_puzzle(EASY_PUZZLE)
             self.assertTrue(solver.solve(self.p))
             self.assertTrue(self.p.is_solved())
 
             # Deductive without backtracking can NOT solve hard puzzle
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[-1]['puzzle']))
+            self.p.init_puzzle(HARD_PUZZLE)
             self.assertFalse(solver.solve(self.p))
             self.assertFalse(self.p.is_solved())
 
-        with self.subTest("DeductiveSolver wit backtracking"):
+        with self.subTest("DeductiveSolver with backtracking"):
             solver = su.DeductiveSolver(use_backtracking=True)
 
             # Deductive with backtracking can solve hard puzzle
-            self.p.init_puzzle(pg.from_string(su.SAMPLE_PUZZLES[-1]['puzzle']))
+            self.p.init_puzzle(HARD_PUZZLE)
             self.assertTrue(solver.solve(self.p))
             self.assertTrue(self.p.is_solved())
-
         return
 
     def test_sat(self):
@@ -467,6 +430,7 @@ class TestSolver(unittest.TestCase):
         regions_have_unique_values = no_cell_has_two_values * mv
 
         # Assuming test puzzle is 9x9
+        assert len(str(self.p)) == 81  # test data error
         assert every_cell_has_a_value == 81
         assert no_cell_has_two_values == 36
         assert num_regions == 27
@@ -485,46 +449,47 @@ class TestSolver(unittest.TestCase):
         # Can solve?
         self.assertTrue(solver.solve(self.p))
         self.assertTrue(self.p.is_solved())
+        self.assertEqual(str(self.s), str(self.p))
         return
 
     def test_solver(self):
         """SudokuSolver can be vaguely useful"""
         with self.subTest("Default solver works"):
             solver = su.SudokuSolver()
-            self.p.init_puzzle(TEST_PUZZLE)
+            self.p.init_puzzle(EASY_PUZZLE)
             self.assertTrue(solver.solve(self.p))
 
-        for m in su.SOLVERS:
-            with self.subTest(f"{m} solver works"):
-                solver = su.SudokuSolver(method=m)
-                self.p.init_puzzle(TEST_PUZZLE)
-                self.assertTrue(solver.solve(self.p))
+            self.p.init_puzzle(HARD_PUZZLE)
+            self.assertTrue(solver.solve(self.p))
 
         with self.subTest("Bad solver raises exception"):
             self.assertRaises(ValueError, su.SudokuSolver, method="banana")
-
         return
 
     def test_all_solvers(self):
         """Test that all available solvers are supported"""
         for x in su.SOLVERS:
-            p = su.SudokuPuzzle(starting_grid=TEST_PUZZLE)
-            solver = su.SudokuSolver(method=x)
             with self.subTest(f"Method {x}"):
-                self.assertTrue(solver.solve(p))
-                self.assertTrue(p.is_solved())
+                solver = su.SudokuSolver(method=x)
+                self.p.init_puzzle(EASY_PUZZLE)
+                self.assertTrue(solver.solve(self.p))
+                self.assertTrue(self.p.is_solved())
+
+                self.p.init_puzzle(HARD_PUZZLE)
+                self.assertTrue(solver.solve(self.p))
+                self.assertTrue(self.p.is_solved())
         return
 
     @unittest.skipUnless(os.environ.get('SUDOKU_LONG_TESTS', False), 'Long running test')
     def test_all_solvers_all_puzzles(self):
-        """Test that all available solvers can solve all test puzzles"""
+        """Test that all available solvers can solve all test puzzles in sudoku.py"""
         for x in su.SOLVERS:
             if x == 'backtracking':
                 continue
             solver = su.SudokuSolver(method=x)
             for p in su.SAMPLE_PUZZLES:
                 with self.subTest(f"Method {x} on puzzle {p['label']}"):
-                    puzzle = su.SudokuPuzzle(starting_grid=p['puzzle'])
+                    puzzle = su.SudokuPuzzle(starting_grid=pg.from_string(p['puzzle']))
                     self.assertTrue(solver.solve(puzzle))
                     self.assertTrue(puzzle.is_solved())
         return
