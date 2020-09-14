@@ -36,6 +36,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
 
         # Set defaults -- caller can pass either or both params. If both
         # passed, they need to be consistent
+
         if grid_size and starting_grid:
             if len(starting_grid) != grid_size:
                 raise ValueError(f"starting_grid is not {grid_size}x{grid_size}")
@@ -47,6 +48,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         # Start by initialising ConstraintPuzzle super, use it to calculate
         # the box size. starting_grid has to be blank, because we're not ready
         # to set the box constraints yet.
+
         blank_grid = pg.build_empty_grid(grid_size)
         super().__init__(grid_size=grid_size, starting_grid=blank_grid)
         self._box_size = int(self._grid_size ** (1 / 2))
@@ -57,6 +59,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         # have an extra constraint -- boxes cannot contain repeated values.
         # Need to re-initialise the grid to correctly set the box constraints,
         # will then put the starting clues back in if they were passed.
+
         self._allowed_values_for_box = [
             set(self._complete_set) for i in range(grid_size)
         ]
