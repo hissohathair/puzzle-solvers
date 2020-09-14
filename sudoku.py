@@ -79,8 +79,8 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         3 (3,0)   4 (3, 3)   5 (3, 6)
         6 (6,0)   7 (6, 3)   8 (6, 6)
         """
-        x = (i // 3) * self._box_size
-        y = (i % 3) * self._box_size
+        x = (i // self._box_size) * self._box_size
+        y = (i % self._box_size) * self._box_size
         return (x, y)
 
     def box_xy_to_num(self, x, y):
