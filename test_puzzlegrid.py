@@ -74,6 +74,32 @@ class TestFunctions(unittest.TestCase):
         solution = pg.ConstraintPuzzle(starting_grid=SOLVED_PUZZLE)
         self.assertTrue(pg.has_same_clues(puzzle, solution))
         self.assertFalse(pg.has_same_clues(solution, puzzle))
+
+        empty_puzzle = pg.ConstraintPuzzle(grid_size=pg.DEFAULT_PUZZLE_SIZE)
+        self.assertTrue(pg.has_same_clues(empty_puzzle, puzzle))
+        self.assertFalse(pg.has_same_clues(puzzle, empty_puzzle))
+
+        small_puzzle = pg.ConstraintPuzzle(grid_size=pg.DEFAULT_PUZZLE_SIZE - 1)
+        self.assertFalse(pg.has_same_clues(empty_puzzle, small_puzzle))
+        return
+
+    def test_from_string(self):
+        """Convert strings to 2D arrays with useful error messages"""
+        with self.subTest("Properly formed strings working"):
+            self.assertEqual(SOLVED_PUZZLE, pg.from_string(SOLVED_STRING))
+            self.assertEqual([[None]], pg.from_string('.'))
+            self.assertEqual([[1]], pg.from_string('1'))
+
+        for i in [1, 4, 9, 16, 25]:
+            with self.subTest(f"String length {i}"):
+                self.assertEqual(pg.build_empty_grid(i), pg.from_string('.' * i ** 2))
+
+        with self.subTest("Badly formed strings raise exception"):
+            self.assertRaises(ValueError, pg.from_string, TEST_STRING[0:-1])
+            self.assertRaises(ValueError, pg.from_string, '.' * (25 ** 2 - 1))
+            self.assertRaises(ValueError, pg.from_string, '2')
+            self.assertRaises(ValueError, pg.from_string, '1223')
+            self.assertRaises(ValueError, pg.from_string, '')
         return
 
 
@@ -108,6 +134,9 @@ class TestPuzzleGrid(unittest.TestCase):
         with self.subTest("Out of range grids"):
             self.assertRaises(ValueError, pg.ConstraintPuzzle, 0)
             self.assertRaises(ValueError, pg.ConstraintPuzzle, 26)
+
+        with self.subTest("grid_size and starting_grid disagree"):
+            self.assertRaises(ValueError, pg.ConstraintPuzzle, grid_size=8, starting_grid=TEST_PUZZLE)
         return
 
     def test_set(self):
@@ -157,6 +186,55 @@ class TestPuzzleGrid(unittest.TestCase):
                 self.assertTrue(self.p.is_empty(i, col))
             self.assertEqual(DEFAULT_PUZZLE_SIZE ** 2, self.p.num_empty_cells())
 
+        return
+
+    def test_find_empty_cell(self):
+        """Finds first available empty cell"""
+        self.p.init_puzzle(TEST_PUZZLE)
+        self.assertEqual((0, 2), self.p.find_empty_cell())
+
+        self.p.init_puzzle(SOLVED_PUZZLE)
+        self.assertEqual((), self.p.find_empty_cell())
+        return
+
+    def test_all_empty_cells(self):
+        """Check the methods for getting empty cells"""
+        with self.subTest(f"Basic empty cell count check"):
+            self.p.init_puzzle(TEST_PUZZLE)
+            self.assertEqual(50, len(self.p.get_all_empty_cells()))
+            self.assertEqual(50, self.p.num_empty_cells())
+
+            self.p.init_puzzle(SOLVED_PUZZLE)
+            self.assertEqual(0, len(self.p.get_all_empty_cells()))
+            self.assertEqual(0, self.p.num_empty_cells())
+
+        with self.subTest(f"Empty cells are empty"):
+            self.p.init_puzzle(TEST_PUZZLE)
+            for m in self.p.get_all_empty_cells():
+                self.assertTrue(self.p.is_empty(*m))
+        return
+
+    def test_next_empty_cell(self):
+        """Test generator function next_empty_cell()"""
+        self.p.init_puzzle(TEST_PUZZLE)
+        with self.subTest(f"next_empty_cell returns all empty cells"):
+            mts = [m for m in self.p.next_empty_cell()]
+            self.assertEqual(mts, self.p.get_all_empty_cells())
+
+        with self.subTest(f"next_empty_cell terminates"):
+            i = 0
+            for m in self.p.next_empty_cell():
+                i += 1
+            self.assertEqual(i, 50)
+
+        with self.subTest(f"next_empty_cell can get one cell at a time"):
+            mts = self.p.get_all_empty_cells()
+            self.assertEqual(len(mts), 50)
+
+            mtGen = self.p.next_empty_cell()
+            for m in mts:
+                x = next(mtGen)
+                self.assertEqual(m, x)
         return
 
     def test_allowed_values(self):
@@ -238,7 +316,7 @@ class TestPuzzleGrid(unittest.TestCase):
 
         self.p.init_puzzle(SOLVED_PUZZLE)
         self.p._grid[0][0] = self.p._grid[0][1]
-        self.assertFalse(self.p.is_puzzle_valid())
+        self.assertFalse(self.p.is_solved())
         return
 
     def test_strings(self):
@@ -291,7 +369,7 @@ class TestPuzzleTester(unittest.TestCase):
         self.assertRaises(ValueError, self.pt.add_testcases, ['banana', 'vodka'])
 
         # Add test cases without labels
-        self.pt.drop_testcases()
+        self.pt = pg.PuzzleTester()
         for tc in self.tc:
             del tc['label']
         self.pt.add_testcases(self.tc)
@@ -302,7 +380,7 @@ class TestPuzzleTester(unittest.TestCase):
         """test from_file func"""
         tc = pg.from_file("data/sudoku_9x9/hardest.txt")
         self.pt.add_testcases(tc)
-        self.assertEqual(11, self.pt.num_testcases())
+        self.assertEqual(13, self.pt.num_testcases())
         return
 
 

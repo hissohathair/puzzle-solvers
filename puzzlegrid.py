@@ -1,8 +1,14 @@
-# puzzlegrid.py
-#
-# Base class for common 2D constraint-solving puzzle grids
-# (e.g. sudoku; kenken)
-#
+"""Base class for common 2D constraint-solving puzzle grids (e.g. sudoku; kenken)
+
+Classes:
+    ConstraintPuzzle: Implements a square puzzle constrained by not repeating
+        values in the same row or column.
+
+    ConstraintSolver: Base virtual class for implementing different solvers
+        for more specific puzzles (e.g. Sudoku)
+
+    PuzzleTester: Does not belong here. TODO: Move it.
+"""
 
 import timeit
 import copy
@@ -12,50 +18,37 @@ MAX_PUZZLE_SIZE = 25
 MIN_PUZZLE_SIZE = 1
 EMPTY_CELL = None
 MIN_CELL_VALUE = 1
-CELL_VALUES = '123456789ABCDEFGHIJKLMNOP'
+CELL_VALUES = "123456789ABCDEFGHIJKLMNOP"
 
 
 def build_empty_grid(grid_size):
-    """Builds a grid_size X grid_size matrix, with each cell set to EMPTY_CELL"""
-    assert not EMPTY_CELL
+    """Builds a 2D array grid_size * grid_size, each cell element is None."""
     assert MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE
     ret = [[] for x in range(grid_size)]
     for x in range(grid_size):
         ret[x] = [EMPTY_CELL for y in range(grid_size)]
-
     return ret
 
 
-def char2int(c):
-    """Convert character `c` to an int representation:
-        - 1-9   Converted to int
-        - A-P   Converted to int where A=10, B=11, ... P=25
-        - 0|.   Converted to EMPTY_CELL
-    """
-    if c == '.' or c == '0':
+def char2int(char):
+    """Converts character char to an int representation."""
+    if char in (".", "0"):
         return EMPTY_CELL
-    else:
-        return CELL_VALUES.index(c) + 1
+    return CELL_VALUES.index(char) + 1
 
 
-def int2char(i):
-    """Given an integer from 1..MAX_PUZZLE_SIZE return a corresponding char
-        - 1-9   Returned as string
-        - 0     Converted to "."
-        - 10+   Converted to A..Z (10=A; 11=B; etc.)
-    """
-    if not i:
+def int2char(value):
+    """Converts back from an int value to character value for a cell."""
+    if not value:
         return "."
-    else:
-        return CELL_VALUES[i - 1]
+    return CELL_VALUES[value - 1]
 
 
 def count_clues(puzzle_grid):
-    """Counts clues in a puzzle_grid, which can be a list of lists or string"""
+    """Counts clues in a puzzle_grid, which can be a list of lists or string."""
     if isinstance(puzzle_grid, list):
         return sum([1 for sublist in puzzle_grid for i in sublist if i])
-    else:
-        return len(puzzle_grid) - puzzle_grid.count(".")
+    return len(puzzle_grid) - puzzle_grid.count(".")
 
 
 # TODO: Move this, it's no longer consistent with from_string
@@ -66,7 +59,7 @@ def from_file(filename, level="(not set)"):
     with open(filename) as f:
         for line in f:
             i += 1
-            tc = {'puzzle': line.rstrip(), 'label': f"{filename}:{i}", 'level': level}
+            tc = {"puzzle": line.rstrip(), "label": f"{filename}:{i}", "level": level}
             ret.append(tc)
     return ret
 
@@ -92,8 +85,14 @@ def from_string(puzzle_string):
     """
     s = puzzle_string.rstrip()
     grid_size = int(len(s) ** (1 / 2))
-    if not (MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE):
-        raise ValueError(f"puzzle_string is not square (len={len(puzzle_string)}")
+    if not MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE:
+        raise ValueError(
+            f"grid_size {grid_size} is out of range [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]"
+        )
+    if grid_size ** 2 != len(s):
+        raise ValueError(
+            f"puzzle_string is not a {grid_size}x{grid_size} square (len={len(puzzle_string)})"
+        )
 
     ret = build_empty_grid(grid_size)
     for i, ch in enumerate(s):
@@ -107,6 +106,15 @@ def from_string(puzzle_string):
 
 
 class ConstraintPuzzle:
+    """A ConstraintPuzzle is a Latin Square.
+
+    A Latin Square is a 2D matrix where the values in each cell cannot be
+    repeated in the same row or column.
+
+    Attributes:
+        TODO: Convert some of these methods to attributes
+    """
+
     def __init__(self, grid_size=None, starting_grid=None):
         """Creates a puzzle grid, `grid_size` X `grid_size` (default 9).
 
@@ -138,9 +146,9 @@ class ConstraintPuzzle:
         elif grid_size is None:
             grid_size = DEFAULT_PUZZLE_SIZE
 
-        if not (MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE):
+        if not MIN_PUZZLE_SIZE <= grid_size <= MAX_PUZZLE_SIZE:
             raise ValueError(
-                f"grid_size={grid_size} outside allowed ranage [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]"
+                f"grid_size={grid_size} outside [{MIN_PUZZLE_SIZE}:{MAX_PUZZLE_SIZE}]"
             )
 
         # Basic grid
@@ -161,7 +169,6 @@ class ConstraintPuzzle:
         # Accept a starting puzzle
         if starting_grid:
             self.init_puzzle(starting_grid)
-        return
 
     def max_value(self):
         """Returns max value for a cell, which is the grid size"""
@@ -205,7 +212,6 @@ class ConstraintPuzzle:
             for y, val in enumerate(row):
                 if val:
                     self.set(x, y, val)
-        return
 
     def num_empty_cells(self):
         """Returns the number of empty cells remaining."""
@@ -221,17 +227,19 @@ class ConstraintPuzzle:
         """
         return self._grid[x][y]
 
-    def set(self, x, y, v):
-        """Sets the call at x,y to value v
+    def set(self, x, y, value):
+        """Sets the call at x,y to value
 
         The set operation must obey the rules of the contraints. In this class
             - no value can be repeated in a row
             - no value can be repeated in a column
         If a constraint is violated then a ValueError exception is raised.
         """
-        if v < MIN_CELL_VALUE or v > self._max_cell_value:
-            raise ValueError(f"Value {v} out of range [{MIN_CELL_VALUE}:{self._max_cell_value}]")
-        if self._grid[x][y] == v:
+        if value < MIN_CELL_VALUE or value > self._max_cell_value:
+            raise ValueError(
+                f"Value {value} out of range [{MIN_CELL_VALUE}:{self._max_cell_value}]"
+            )
+        if self._grid[x][y] == value:
             return
 
         # Clear value first to update constraints
@@ -239,16 +247,15 @@ class ConstraintPuzzle:
             self.clear(x, y)
 
         # Write value if allowed
-        if self.is_allowed_value(x, y, v):
-            self._grid[x][y] = v
+        if self.is_allowed_value(x, y, value):
+            self._grid[x][y] = value
             self._num_empty_cells -= 1
         else:
-            raise ValueError(f"Value {v} not allowed at {x},{y} (constraint violation)")
+            raise ValueError(f"Value {value} not allowed at {x},{y} (constraint violation)")
 
         # Update constraints
-        self._allowed_values_for_row[x].remove(v)
-        self._allowed_values_for_col[y].remove(v)
-        return
+        self._allowed_values_for_row[x].remove(value)
+        self._allowed_values_for_col[y].remove(value)
 
     def clear(self, x, y):
         """Clears the value for a cell at x,y"""
@@ -265,14 +272,12 @@ class ConstraintPuzzle:
         # Put previous value back into allowed list
         self._allowed_values_for_row[x].add(prev)
         self._allowed_values_for_col[y].add(prev)
-        return
 
     def clear_all(self):
         """Clears the entire puzzle grid"""
         for x in range(self._max_cell_value):
             for y in range(self._max_cell_value):
                 self.clear(x, y)
-        return
 
     def is_empty(self, x, y):
         """Returns True if the cell is empty"""
@@ -314,7 +319,10 @@ class ConstraintPuzzle:
         while max_possibilities <= self._max_cell_value:
             for i, row in enumerate(self._grid):
                 for j, v in enumerate(row):
-                    if not v and len(self.get_allowed_values(i, j)) <= max_possibilities:
+                    if (
+                        not v
+                        and len(self.get_allowed_values(i, j)) <= max_possibilities
+                    ):
                         yield (i, j)
             max_possibilities += 1
         return ()
@@ -350,20 +358,18 @@ class ConstraintPuzzle:
         """
         if self._grid[x][y]:
             return {self._grid[x][y]}
-        else:
-            return self._allowed_values_for_row[x] & self._allowed_values_for_col[y]
+        return self._allowed_values_for_row[x] & self._allowed_values_for_col[y]
 
-    def is_allowed_value(self, x, y, v):
-        """Returns True if placing value v at position x,y is allowed
+    def is_allowed_value(self, x, y, value):
+        """Returns True if placing value at position x,y is allowed
 
         Allowed values are based on current constraint state. The value might
         still be incorrect, function is only asserting that it is allowed
         based on the current state of the puzzle grid.
         """
-        if v and self._grid[x][y] == v:
+        if value and self._grid[x][y] == value:
             return True
-        else:
-            return v in self.get_allowed_values(x, y)
+        return value in self.get_allowed_values(x, y)
 
     def is_puzzle_valid(self):
         """Returns True if the puzzle is in a valid state, False if rules broken
@@ -396,31 +402,39 @@ class ConstraintPuzzle:
                     if self.is_empty(i, j):
                         return False
             return True
-        else:
-            return False
+        return False
 
-    def as_grid(self):
+    def __str__(self):
         """Return a string representation of the puzzle as a 2D grid"""
         blurb = [["-" if v is None else v for v in row] for row in self._grid]
         return "\n".join(" ".join(map(str, sl)) for sl in blurb)
 
-    # TODO: Should really do __repr__ apparently: https://stackoverflow.com/questions/1436703/difference-between-str-and-repr
-    def __str__(self):
-        """Return a flat string representation of the puzzle"""
-        return "".join([int2char(i) if i else "." for sublist in self._grid for i in sublist])
+    def __repr__(self):
+        """Return an unambiguous string representation of the puzzle"""
+        puz = "".join([int2char(i) for sublist in self._grid for i in sublist])
+        ret = f"{self.__class__.__name__}({self._grid_size}, '{puz}')"
+        return ret
 
 
 class ConstraintSolver:
-    def __init__(self):
+    """Base class for more specialised puzzle solvers"""
+
+    def __init__(self, method="unimplemented"):
         """Initialize internal state, which is some basic stats counters
 
         Attributes:
             stats:      Dictionary for internal solver stats
             trace:      Record of moves recorded by solver
         """
+        self.method = method
         self.stats = {}
         self.trace = []
-        return
+
+    def reset(self):
+        """Reset internal state (stats, trace)"""
+        self.stats = {}
+        self.trace = []
+        return self
 
     def solve(self, puzzle):
         """Solve the `puzzle` (assumed to be a `ConstraintPuzzle`)
@@ -430,15 +444,29 @@ class ConstraintSolver:
         """
         raise NotImplementedError("solve() should be implemented by child class")
 
+    def __repr__(self):
+        """Return an unambiguous string representation of the solver"""
+        ret = f"{self.__class__.__name__}(method={self.method})"
+        return ret
 
-def has_same_clues(a, b):
-    """Returns true if the non empty cells in a have the same value in b"""
-    if a.max_value() != b.max_value():
+
+def has_same_clues(puzzle, solution):
+    """Returns true if the cells in puzzle have the same value in solution.
+
+    Args:
+        puzzle: The original puzzle, expected to have some empty cells.
+        solution: The solved puzzle.
+
+    Returns:
+        True if every non-empty cell in puzzle has the same value in
+        solution.
+    """
+    if puzzle.max_value() != solution.max_value():
         return False
 
-    for i in range(a.max_value()):
-        for j in range(a.max_value()):
-            if not a.is_empty(i, j) and a.get(i, j) != b.get(i, j):
+    for x in range(puzzle.max_value()):
+        for y in range(puzzle.max_value()):
+            if not puzzle.is_empty(x, y) and puzzle.get(x, y) != solution.get(x, y):
                 return False
     return True
 
@@ -456,6 +484,7 @@ class PuzzleTester:
             test_samples:   Number of times to repeat each test case
         """
         self.anti_cheat_checking = False
+        self.__last_was_solved = False
         self._puzzle_class = puzzle_class
         self._test_samples = test_samples
         self._test_cases = []
@@ -463,7 +492,6 @@ class PuzzleTester:
         self._results = {}
         for k in self._rkeys:
             self._results[k] = []
-        return
 
     def num_testcases(self):
         """Return the number of test cases added so far"""
@@ -481,7 +509,7 @@ class PuzzleTester:
         """
         if not isinstance(test_cases, list):
             raise ValueError("Expecting a list of dicts (not a list)")
-        elif not isinstance(test_cases[0], dict):
+        if not isinstance(test_cases[0], dict):
             raise ValueError("Expecting a list of dicts (is a list, not of dicts")
 
         # This structure used to keep all test cases
@@ -492,17 +520,13 @@ class PuzzleTester:
             if "label" not in case:
                 case["label"] = f"Test Case #{i}"
             if "level" not in case:
-                case["level"] = f"(not set)"
+                case["level"] = "(not set)"
             case["starting_clues"] = count_clues(case["puzzle"])
 
             for k in self._rkeys:
                 self._results[k].append(case[k])
-        return
 
-    def drop_testcases(self):
-        """Drop test cases but keep results"""
-        self._test_cases = []
-        return
+        return len(self._test_cases)
 
     def run_single_test(self, test_case, puzzle, solver):
         """Run a single test case. Execution of this method is what run_tests is timing
@@ -512,24 +536,23 @@ class PuzzleTester:
 
         Returns True if puzzle was solved by solver.solve(p)
 
-        Parameters:
-            test_case:  Dict containing test case, must contain 'puzzle'
-            solver:     Instance of a ConstraintSolver class with solve() method
+        Args:
+            test_case: Dict containing test case, must contain 'puzzle'
+            solver: Instance of a ConstraintSolver class with solve() method
+
+        Returns:
+            True if puzzle was solved by solver
         """
-        # p = self._puzzle_class(starting_grid=test_case['puzzle'])
-        if isinstance(test_case['puzzle'], str):
-            puzzle.init_puzzle(from_string(test_case['puzzle']))
-        else:
-            puzzle.init_puzzle(test_case['puzzle'])
-        original = copy.deepcopy(puzzle)
-        solver.solve(puzzle)
+        p = puzzle(starting_grid=from_string(test_case['puzzle']))
+        original = copy.deepcopy(p)
+        solver.solve(p)
         if not self.anti_cheat_checking:
-            self._last_was_solved = puzzle.is_solved()
-        elif has_same_clues(original, puzzle):
-            self._last_was_solved = puzzle.is_solved()
+            self.__last_was_solved = p.is_solved()
+        elif has_same_clues(original, p):
+            self.__last_was_solved = p.is_solved()
         else:
-            self._last_was_solved = False
-        return self._last_was_solved
+            self.__last_was_solved = False
+        return self.__last_was_solved
 
     def run_tests(self, solver, label, callback=None):
         """Run all test cases against the `solver` (class ConstraintSolver)
@@ -558,10 +581,12 @@ class PuzzleTester:
         total_time = 0
         for test_case in self._test_cases:
             if callback:
-                callback(label, num_puzzles, self.num_testcases(), total_time, test_case)
+                callback(
+                    label, num_puzzles, self.num_testcases(), total_time, test_case
+                )
 
-            puzzle = self._puzzle_class()
-            self._last_was_solved = False
+            puzzle = self._puzzle_class
+            self.__last_was_solved = False
             t = timeit.timeit(
                 "pt.run_single_test(test_case, puzzle, solver)",
                 number=self._test_samples,
@@ -570,11 +595,11 @@ class PuzzleTester:
                     "test_case": test_case,
                     "solver": solver,
                     "puzzle": puzzle,
-                }
+                },
             )
             num_puzzles += 1
             total_time += t
-            if self._last_was_solved:
+            if self.__last_was_solved:
                 self._results[label].append(t / self._test_samples)
             else:
                 self._results[label].append(None)
@@ -598,4 +623,3 @@ class PuzzleTester:
             pt.set_test_results(df.to_dict('list'))
         """
         self._results = results
-        return

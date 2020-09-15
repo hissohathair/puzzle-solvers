@@ -4,25 +4,28 @@
 # from puzzlegrid package.
 #
 
-import puzzlegrid as pg
 import collections
 import pycosat
+
+import puzzlegrid as pg
 
 
 DEFAULT_SUDOKU_SIZE = 9
 
 
 class SudokuPuzzle(pg.ConstraintPuzzle):
+    """Implements a Sudoku puzzle grid.
+
+    The class will enforce the rules of standard Sudoku, meaning no
+    value can be repeated in a row, column, or box. If both grid_size and
+    starting_grid are set then they must be consistent (i.e. grid_size
+    must == len(starting_grid)), this is done as a data integrity check.
+    Otherwise the caller can define one param and the other will be set
+    to match.
+    """
+
     def __init__(self, grid_size=None, starting_grid=None):
-        """Creates a Sudoku puzzle grid.
-
-        The class will enforce the rules of standard Sudoku, meaning no
-        value can be repeated in a row, column, or box. If both grid_size and
-        starting_grid are set then they must be consistent (i.e. grid_size
-        must == len(starting_grid)), this is done as a data integrity check.
-        Otherwise the caller can define one param and the other will be set
-        to match.
-
+        """
         Args:
             grid_size: The width/height of the grid (default is 9). Must be a
                 square value (i.e. 1, 4, 9, 16, or 25) for Sudoku.
@@ -84,9 +87,7 @@ class SudokuPuzzle(pg.ConstraintPuzzle):
         return (x, y)
 
     def box_xy_to_num(self, x, y):
-        """
-        Given a call at x,y return what the sequential box number is.
-        """
+        """Given a cell at x,y return what the sequential box number is."""
         box_x = x // self._box_size
         box_y = y // self._box_size
         return (box_x * self._box_size) + box_y
@@ -441,10 +442,9 @@ class DeductiveSolver(ConstraintPropogationSolver):
         num_cells_updated = 1
         total_cells_updated = 0
         while num_cells_updated > 0:
-            num_cells_updated = (
-                self.solve_two_out_of_three_by_rows(puzzle) 
-                + self.solve_two_out_of_three_by_columns(puzzle)
-            )
+            num_cells_updated = self.solve_two_out_of_three_by_rows(
+                puzzle
+            ) + self.solve_two_out_of_three_by_columns(puzzle)
             total_cells_updated += num_cells_updated
 
         return total_cells_updated
@@ -557,7 +557,7 @@ def _build_sat_clause(mv, i, j, d):
 class SATSolver(pg.ConstraintSolver):
     """Solves Sudoku puzzle as a Boolean Satisfiability (SAT) problem.
 
-    Credit: https://github.com/taufanardi/sudoku-sat-solver
+    Credit: http://ilan.schnell-web.net/prog/sudoku/
     """
 
     def solve(self, puzzle):
@@ -566,8 +566,8 @@ class SATSolver(pg.ConstraintSolver):
 
         # Locals - accessed by sub-methods below
         mv = puzzle.max_value()  # mv: Max Value of a digit in a cell (e.g. 9)
-        sz = mv + 1              # sz: Size of puzzle, always mv + 1 (e.g. 10)
-        v = _build_sat_clause    # v: Function to build SAT clause
+        sz = mv + 1  # sz: Size of puzzle, always mv + 1 (e.g. 10)
+        v = _build_sat_clause  # v: Function to build SAT clause
 
         # Actual solver
         clauses = self.get_sat_clauses(puzzle)
@@ -595,17 +595,19 @@ class SATSolver(pg.ConstraintSolver):
 
         # Locals - accessed by sub-methods below
         mv = puzzle.max_value()  # mv: Max Value of a digit in a cell
-        sz = mv + 1              # sz: Size of puzzle, always mv + 1
-        bs = puzzle.box_size()   # bs: Box size (bs * bs == mv)
-        v = _build_sat_clause    # v: Function to build SAT clause
-        clauses = []             # clauses: List of SAT clauses
+        sz = mv + 1  # sz: Size of puzzle, always mv + 1
+        bs = puzzle.box_size()  # bs: Box size (bs * bs == mv)
+        v = _build_sat_clause  # v: Function to build SAT clause
+        clauses = []  # clauses: List of SAT clauses
 
         def valid(cells):
             for i, xi in enumerate(cells):
                 for j, xj in enumerate(cells):
                     if i < j:
                         for d in range(1, sz):
-                            clauses.append([-v(mv, xi[0], xi[1], d), -v(mv, xj[0], xj[1], d)])
+                            clauses.append(
+                                [-v(mv, xi[0], xi[1], d), -v(mv, xj[0], xj[1], d)]
+                            )
 
         # For every cell...
         for i in range(1, sz):

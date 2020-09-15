@@ -19,8 +19,8 @@ TEST_PUZZLE_STRINGS = [
 
     # 16x16 - some of these are mostly solved, otherwise they take a long time to test
     "G.1C4.6F92E3A58BAF638G29.B5CED14845EB73..1A6G9F229BDA51EG84F6C73613AG4E857CBD..9BCD732A1FG948E56F28GC95D1E6A4B379E45F67B83D2C1AGCDG12B864F753A9E7A2BE1C43DG9F86538945AFG6C2E17BD56EFD397BA182G4C4B786FDAC53G.2E1EGC29845A6B173D..3A91CB2E4F756G8.5F67EG3298DB4C.",
-    "....D....F3...E.....A870....C..4.FB.....5.7.0986.C.EF5....A........4C6...7..E....A.2..F....B347..D.19A..ECF.......95....2D4A....D...0..A....6.F.BE.A..C....84.93C..7...8.56.B...48..6.5EB2....0A7.....6...C.802.....1.ED..5.7.6...F..7....E....D5..9......B..EAF",
-    "....3......9..CE5.E.72C....0.6....F.ED.....4A...DCB9.F..13...7.....A...2E4.1....9...41D....F3CA5F..4...37.6..8B9B...C.......2F..C....7B.D6.EF...8FD.9AE5.07.B..CEA..28....B.0.7...9...1F8...5..4.8..F..E..D..9.6.B...9.......D..A96.....2.F7435.........A.......",
+    "..A8D.B9CF315GE291.DA8..GB2ECF34G...E21C547DA9.62C4EF53G68..1DB7FB..C6...785EAD9....5DF196GB.4788D719A4BE.F3265G36958EG72D4A..C1D52G4B9A3E1..8FCBE6A7.C2FGD..593C937GFD8A564B21E481F635EB29CD7GA74EB396FDACG8125A28C1GED495F736B1GF6B7A583E29C4D53D92C8471B6GE..",
+    "1.A7.G68FB59D4CE54..........96FB6GF8ED9BC724A513DCB95F4A13E687G235C...F2E49.6..79E.241D6B8G.3CA5F..4A5G372...8B9B68G.E795D3A2F41C3.5G7B4D61EFA988FD19AE54G73.26CE...28...FB5G...G79BD..F8CA2.E3478GCF4AE35DB19262...19576E4GCD8A..6EBC8D21F743.G415D632GA9C87B..",
 
     # 25x25
     "H.P.KJ5.6F..O..I2..3B9G7..J..8.DI.25LNGACM9B7.6..O..C..M...A6.HF..85.G.I23D...6..BKP.9.7D3F..J.N.C.MN5.73G9.CLIM......OAFE..84......M....A.F.6G3C.5.DBL6MDGP..OE.I.JB5..K.C....P.....6L...857...DAE3OFG91.BJ5..DF..9.6L.H82MP.I..9....28NH51D..GL4.I..AMEJM.O.6.P5.NGJ..K...F.....EGF.8L.K72MO6I.4N.3.J.......N..C.14....3M.5I92J..L.E..9I.....7PCL.G.4....HAN2PJ..9.AE3..81N6C.DLOG5F7BMK..LN.7H.13AO.G.5D...9..GD.C4M.K..5P..9.ENO.3.I6.86.1.E...BH9KI3..C..J.2F.4FEN.2.J..G.C.BKPMI..OH.7L.OP53...JN...A.2..KD.1G.E.....BG.CO.IHMAF.952J.3.N.1..4PI..7JB8....6.FAMHC7.F.3.O.D..6.2.IK.5......I3..KH.5.L.G...J.4BE.P6CK..G9.CJA6E3DM..PL..7.8..",
@@ -57,6 +57,19 @@ EASY_MOVES_ILLEGAL = [[0, 2, 8], [0, 2, 1], [3, 3, 2], [3, 3, 4], [2, 2, 4], [3,
 
 HARD_PUZZLE = pg.from_string("..8......1..6..49.5......7..7..4.....5.2.6...8..79..1..63.....1..5.73......9..75.")
 HARD_SOLUTION = pg.from_string("498157632137682495526439178671348529359216847842795316763524981915873264284961753")
+
+UNSOLVABLE_STRINGS = [
+    "5168497323.76.5...8.97...65135.6.9.7472591..696837..5.253186.746842.75..791.5.6.8",
+    "781543926..61795..9546287316958372141482653793279148..413752698..2...4..5794861.3",
+]
+
+MULTI_SOLUTION_STRINGS = [
+    ".8...9743.5...8.1..1.......8....5......8.4......3....6.......7..3.5...8.9724...5.",
+    "9.6.7.4.3...4..2...7..23.1.5.....1...4.2.8.6...3.....5.3.7...5...7..5...4.5.1.7.8",
+    ".6.....92..21...8...74.......3.26.......3.6.4.7....5..2......5......5...4...81...",
+    "4..3..6........7.1........8..9.5........7..5..168....3..59......2.5......4..1..26",
+    "69.2...4.1..5....83...........73...59....8.....8...2.......4........95...41..2..7",
+]
 
 
 class TestSudoku(unittest.TestCase):
@@ -96,6 +109,7 @@ class TestSudoku(unittest.TestCase):
             with self.subTest(f"Test Puzzle {i} init (len={len(puzzle)})"):
                 p = su.SudokuPuzzle(starting_grid=pg.from_string(puzzle))
                 self.assertTrue(p.is_puzzle_valid())
+                self.assertEqual(len(puzzle), p.num_cells())
         return
 
     def test_class_init_raises_exception(self):
@@ -175,45 +189,6 @@ class TestSudoku(unittest.TestCase):
         self.assertEqual(self.p.get(x, y), test_value)
         self.assertFalse(self.p.is_empty(x, y))
         self.assertEqual(num_empty, self.p.num_empty_cells())
-        return
-
-    def test_empty_cells(self):
-        """Check the methods for getting empty cells"""
-        with self.subTest(f"Basic empty cell count check"):
-            self.assertEqual(len(self.p.get_all_empty_cells()), 50)
-            self.assertEqual(
-                len(self.p.get_all_empty_cells()), self.p.num_empty_cells()
-            )
-            self.assertEqual(len(self.s.get_all_empty_cells()), 0)
-            self.assertEqual(
-                len(self.s.get_all_empty_cells()), self.s.num_empty_cells()
-            )
-
-        with self.subTest(f"Empty cells are empty"):
-            for m in self.p.get_all_empty_cells():
-                self.assertTrue(self.p.is_empty(*m))
-        return
-
-    def test_next_empty_cell(self):
-        """Test generator function next_empty_cell()"""
-        with self.subTest(f"next_empty_cell returns all empty cells"):
-            mts = [m for m in self.p.next_empty_cell()]
-            self.assertEqual(mts, self.p.get_all_empty_cells())
-
-        with self.subTest(f"next_empty_cell terminates"):
-            i = 0
-            for m in self.p.next_empty_cell():
-                i += 1
-            self.assertEqual(i, 50)
-
-        with self.subTest(f"next_empty_cell can get one cell at a time"):
-            mts = self.p.get_all_empty_cells()
-            self.assertEqual(len(mts), 50)
-
-            mtGen = self.p.next_empty_cell()
-            for m in mts:
-                x = next(mtGen)
-                self.assertEqual(m, x)
         return
 
     def test_get_values(self):
@@ -552,20 +527,58 @@ class TestSolver(unittest.TestCase):
 
     def test_all_solvers_all_sizes(self):
         """Solvers can solve different sizes of puzzles"""
-        for x in su.SOLVERS:
-            solver = su.SudokuSolver(method=x)
+        for m in su.SOLVERS:
+            solver = su.SudokuSolver(method=m)
             for i, puzzle in enumerate(TEST_PUZZLE_STRINGS):
                 # Skip backtracking on larger puzzles
-                if x == 'backtracking' and len(puzzle) > 81:
+                if m == 'backtracking' and len(puzzle) > 81:
                     continue
 
-                with self.subTest(f"Method {x}; Puzzle {i} (len={len(puzzle)})"):
+                with self.subTest(f"Method {m}; Puzzle {i} (len={len(puzzle)})"):
                     p = su.SudokuPuzzle(starting_grid=pg.from_string(puzzle))
                     self.assertTrue(p.is_puzzle_valid())
                     self.assertFalse(p.is_solved())
                     self.assertTrue(solver.solve(p))
                     self.assertTrue(p.is_solved())
                     self.assertEqual(TEST_SOLUTION_STRINGS[i], str(p))
+        return
+
+    def test_all_solvers_unsolvable_puzzles(self):
+        """Test all solvers on how they handle unsolvable puzzles"""
+        for m in su.SOLVERS:
+            solver = su.SudokuSolver(method=m)
+            for i, puzzle in enumerate(UNSOLVABLE_STRINGS):
+                with self.subTest(f"Method {m}; Unsolvable puzzle {i}"):
+                    # These "unsolvable" puzzles are still valid initially
+                    self.p.init_puzzle(pg.from_string(puzzle))
+                    self.assertTrue(self.p.is_puzzle_valid())
+                    self.assertFalse(self.p.is_solved())
+
+                    # Check method correctly reports it cannot be solved
+                    self.assertFalse(solver.solve(self.p))
+
+                    # Solver should leave puzzle in valid, but unsolved state
+                    self.assertTrue(self.p.is_puzzle_valid())
+                    self.assertFalse(self.p.is_solved())
+        return
+
+    def test_all_solvers_multisolution_puzzles(self):
+        """Test all solvers on how they handle puzzles with multiple solutions"""
+        for m in su.SOLVERS:
+            solver = su.SudokuSolver(method=m)
+            for i, puzzle in enumerate(MULTI_SOLUTION_STRINGS):
+                with self.subTest(f"Method {m}; Multi-solution puzzle {i}"):
+                    # Failure here would be test data error
+                    self.p.init_puzzle(pg.from_string(puzzle))
+                    self.assertTrue(self.p.is_puzzle_valid())
+                    self.assertFalse(self.p.is_solved())
+
+                    # Requirement is to return *a* solution
+                    self.assertTrue(solver.solve(self.p))
+                    self.assertTrue(self.p.is_solved())
+
+                    # TODO: Mechanism to report multiple solutions? SAT could
+                    # do it. Others might take too long.
         return
 
     @unittest.skipUnless(os.environ.get('SUDOKU_LONG_TESTS', False), 'Long running test')
