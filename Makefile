@@ -11,7 +11,7 @@ test:
 		${RUNTEST} ${ALLMODULES}
 
 coverage:
-		${COVERAGE} run -m unittest discover
+		SUDOKU_LONG_TESTS=1 ${COVERAGE} run -m unittest discover
 		${COVERAGE} report -m
 		${COVERAGE} html
 
