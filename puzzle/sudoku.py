@@ -34,13 +34,13 @@ Classes:
 import collections
 import pycosat
 
-import puzzle.latinsquare as ls
+from puzzle.latinsquare import LatinSquare, from_string, build_empty_grid
 
 
 DEFAULT_SUDOKU_SIZE = 9
 
 
-class SudokuPuzzle(ls.LatinSquare):
+class SudokuPuzzle(LatinSquare):
     """Implements a Sudoku puzzle grid as a specialized LatinSquare.
 
     The class will enforce the rules of standard Sudoku, meaning no
@@ -73,6 +73,10 @@ class SudokuPuzzle(ls.LatinSquare):
 
     def __init__(self, grid_size=None, starting_grid=None):
 
+        # Convert starting_grid
+        if isinstance(starting_grid, str):
+            starting_grid = from_string(starting_grid)
+
         # If both parameters are passed, they need to be consistent
         if grid_size and starting_grid:
             if len(starting_grid) != grid_size:
@@ -91,7 +95,7 @@ class SudokuPuzzle(ls.LatinSquare):
         # the box size. starting_grid has to be blank, because we're not ready
         # to set the box constraints yet.
 
-        blank_grid = ls.build_empty_grid(grid_size)
+        blank_grid = build_empty_grid(grid_size)
         super().__init__(grid_size=grid_size, starting_grid=blank_grid)
 
         # Super has initialised row and column constraints. Sudoku puzzles

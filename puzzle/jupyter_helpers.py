@@ -5,6 +5,25 @@ Module variables:
         as a Sudoku grid.
 """
 
+from IPython.display import HTML, display, clear_output
+
+
+def print_puzzle(puzzle, **args):
+    display(HTML(puzzle.as_html(**args)))
+
+
+def print_2_puzzles(puz1, puz2, **args):
+    display(HTML('<table><tr><td>' + puz1.as_html(**args) + '</td><td>' + puz2.as_html() + '</td></tr></table>'))
+
+
+def update_progress(label, current, total, time_so_far, test_case):
+    clear_output(wait=True)
+    display(HTML(f'<progress style="width: 100%" max={total} value={current}>{current} of {total}</progress>'))
+    if test_case:
+        display(HTML(f"<p>Working on {label}: <i>{test_case}</i> ({current} of {total}), time so far {time_so_far:.2f}s</p>"))
+    else:
+        display(HTML(f"<p>Completed {total} test cases in {time_so_far:.2f} seconds</p>"))
+
 
 SUDOKU_CSS = '''
     <style type="text/css">
