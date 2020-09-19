@@ -954,4 +954,10 @@ SAMPLE_PUZZLES = [
         "link": "http://www.aisudoku.com/index_en.html",
         "puzzle": "1....7.9..3..2...8..96..5....53..9...1..8...26....4...3......1..4......7..7...3..",
     },
+    {
+        "level": "Pathalogical",
+        "label": "Top 95 Number #9",
+        "link": "https://norvig.com/top95.txt",
+        "puzzle": "6.2.5.........4.3..........43...8....1....2........7..5..27...........81...6.....",
+    }
 ]

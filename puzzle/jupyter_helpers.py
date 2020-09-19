@@ -13,7 +13,10 @@ def print_puzzle(puzzle, **args):
 
 
 def print_2_puzzles(puz1, puz2, **args):
-    display(HTML('<table><tr><td>' + puz1.as_html(**args) + '</td><td>' + puz2.as_html() + '</td></tr></table>'))
+    ret = ['<table><tr><td>', puz1.as_html(**args), '</td>',
+           '<td>', puz2.as_html(**args), '</td></tr></table>',
+           ]
+    display(HTML(''.join(ret)))
 
 
 def update_progress(label, current, total, time_so_far, test_case):
