@@ -400,6 +400,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
 
     def __init__(self, use_backtracking=True):
         self.use_backtracking = use_backtracking
+        super().__init__()
 
     def solve(self, puzzle):
         """Solve the puzzle. Return True if solved, False otherwise.
