@@ -84,8 +84,9 @@ class PuzzleTester:
         test_samples: Number of times to repeat each test case. Default is 1.
     """
 
-    def __init__(self, puzzle_class, test_samples=1):
+    def __init__(self, puzzle_class, test_samples=1, anti_cheat_check=True):
         self.__last_was_solved = False
+        self.__anti_cheat_check = anti_cheat_check
         self.puzzle_class = puzzle_class
         self.test_samples = test_samples
         self._test_cases = []
@@ -164,6 +165,8 @@ class PuzzleTester:
         # Call solver and check for cheating
         claimed_solved = solver.solve(puz)
         if claimed_solved and has_same_clues(orig, puz):
+            self.__last_was_solved = puz.is_solved()
+        elif not self.__anti_cheat_check:
             self.__last_was_solved = puz.is_solved()
         else:
             self.__last_was_solved = False
