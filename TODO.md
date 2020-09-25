@@ -10,16 +10,15 @@ Notebooks to finish / polish:
 * Maybe: "Unsolveable" or "multiple solutions" tolerance
 
 
-## puzzlegrid.py
+## tester.py
 
-* Sometimes `x; i; or row` used for rows; sometimes `y; j; or col` used for columns -- should be consistent
 * `run_single_test` stashes last puzzle test result as private instance variable - feels dodgy?
 
 
 ## sudoku.py
 
 * Why is `StopIteration` never raised line 230?
-* Solver should take a timelimit parameter (or PuzzleTester shouls be able to timeout a solver)
+* Solver should take a timelimit parameter (or PuzzleTester should be able to timeout a solver)
 * Solver (all classes really) needs a __repr__ method
 
 
