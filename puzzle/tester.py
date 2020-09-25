@@ -260,3 +260,15 @@ class PuzzleTester:
             results: Dictionary if list values for test results.
         """
         self._results = results
+
+    def __repr__(self):
+        """Return unambiguous representation of PuzzleTester"""
+        ret = (
+            f"{self.__class__.__name__}("
+            f"{self.puzzle_class.__name__}, "
+            f"test_samples={self.test_samples}, "
+            f"anti_cheat_check={self.__anti_cheat_check}, "
+            f"num_test_cases={self.num_test_cases()}, "
+            f"solver_labels={self.get_solver_labels()})"
+        )
+        return ret

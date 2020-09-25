@@ -76,6 +76,11 @@ class TestPuzzleTester(unittest.TestCase):
         self.pt.add_test_cases(self.test_cases)
         self.assertEqual(3, self.pt.num_test_cases())
 
+    def test_class_repr(self):
+        """Class can represent itself"""
+        expected = "PuzzleTester(LatinSquare, test_samples=1, anti_cheat_check=True, num_test_cases=0, solver_labels=set())"
+        self.assertEqual(expected, repr(self.pt))
+
 
 class TestSudokuTester(unittest.TestCase):
     """Tests for the class PuzzleTester using Sudoku puzzles"""
@@ -117,6 +122,14 @@ class TestSudokuTester(unittest.TestCase):
         newpt = pt.PuzzleTester(puzzle_class=su.SudokuPuzzle)
         newpt.set_test_results(results)
         self.assertEqual(self.pt.get_test_results(), newpt.get_test_results())
+
+    def test_class_repr(self):
+        """Class can represent itself"""
+        expected = (
+            f"PuzzleTester(SudokuPuzzle, test_samples=1, anti_cheat_check=True, "
+            f"num_test_cases={len(self.test_cases)}, solver_labels=set())"
+        )
+        self.assertEqual(expected, repr(self.pt))
 
 
 if __name__ == "__main__":
