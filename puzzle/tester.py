@@ -85,7 +85,7 @@ class PuzzleTester:
     """
 
     def __init__(self, puzzle_class, test_samples=1, anti_cheat_check=True):
-        self.__last_was_solved = False
+        self._last_was_solved = False
         self.__anti_cheat_check = anti_cheat_check
         self.puzzle_class = puzzle_class
         self.test_samples = test_samples
@@ -165,12 +165,12 @@ class PuzzleTester:
         # Call solver and check for cheating
         claimed_solved = solver.solve(puz)
         if claimed_solved and has_same_clues(orig, puz):
-            self.__last_was_solved = puz.is_solved()
+            self._last_was_solved = puz.is_solved()
         elif not self.__anti_cheat_check:
-            self.__last_was_solved = puz.is_solved()
+            self._last_was_solved = puz.is_solved()
         else:
-            self.__last_was_solved = False
-        return self.__last_was_solved
+            self._last_was_solved = False
+        return self._last_was_solved
 
     def run_tests(self, solver, label=None, callback=None):
         """Run all test cases against the solver.
@@ -219,7 +219,7 @@ class PuzzleTester:
             if callback:
                 callback(label, num_puzzles, self.num_test_cases(), total_time, test_case['label'])
 
-            self.__last_was_solved = False
+            self._last_was_solved = False
             t = timeit.timeit(
                 "pt.run_single_test(test_case['puzzle'], solver)",
                 number=self.test_samples,
@@ -231,7 +231,7 @@ class PuzzleTester:
             )
             num_puzzles += 1
             total_time += t
-            if self.__last_was_solved:
+            if self._last_was_solved:
                 self._results[label].append(t / self.test_samples)
             else:
                 self._results[label].append(None)
