@@ -1,27 +1,33 @@
-# puzzlegrid.py
+# Sudoku
 
-* Sometimes `x; i; or row` used for rows; sometimes `y; j; or col` used for columns -- should be consistent
+Notebooks to finish / polish:
+
+* ~~[Introduction / Index](Sudoku.ipynb)~~
+* ~~[Cheating](Sudoku/Cheating.ipynb)~~
+* [Constraint Propogation Variability](Constraint%20Propogation%20Variability.ipynb)
+* [Larger Puzzles](Larger%20Puzzles.ipynb)
+* [Performance](Performance.ipynb)
+* Maybe: "Unsolveable" or "multiple solutions" tolerance
+
+
+## tester.py
+
 * `run_single_test` stashes last puzzle test result as private instance variable - feels dodgy?
 
 
-# sudoku.py
+## sudoku.py
 
 * Why is `StopIteration` never raised line 230?
-* Solver should take a timelimit parameter (or PuzzleTester shouls be able to timeout a solver)
+* Solver should take a timelimit parameter (or PuzzleTester should be able to timeout a solver)
 * Solver (all classes really) needs a __repr__ method
 
 
-# Sudoku Solver.ipynb
+## Sudoku Solver.ipynb
 
-* Function `print_puzzle` never used?
-* Consider boxplot: https://matplotlib.org/3.1.1/gallery/statistics/boxplot_color.html#sphx-glr-gallery-statistics-boxplot-color-py
-* Credit fix: SAT solver actually from here: https://github.com/ContinuumIO/pycosat/blob/master/examples/sudoku.py found via http://ilan.schnell-web.net/prog/sudoku/
-* Credit: https://theconversation.com/good-at-sudoku-heres-some-youll-never-complete-5234
-* Credit: https://www.sudokudragon.com/unsolvable.htm
-* Add tests / data for unsolvable and multi-solvable puzzles?
+* Add tests / data for unsolvable and multi-solvable puzzles? (https://www.sudokudragon.com/unsolvable.htm)
 
 
-# Reading
+## Reading
 
 * Benchmarking: https://codingnest.com/modern-sat-solvers-fast-neat-underused-part-1-of-n/ and https://codingnest.com/modern-sat-solvers-fast-neat-and-underused-part-1-5-of-n/
 * Read: https://gist.github.com/nickponline/9c91fe65fef5b58ae1b0
