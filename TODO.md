@@ -4,7 +4,7 @@ Notebooks to finish / polish:
 
 * ~~[Introduction / Index](Sudoku.ipynb)~~
 * ~~[Cheating](Sudoku/Cheating.ipynb)~~
-* [Constraint Propogation Variability](Constraint%20Propogation%20Variability.ipynb)
+* ~~[Constraint Propogation Variability](Constraint%20Propogation%20Variability.ipynb)~~
 * [Larger Puzzles](Larger%20Puzzles.ipynb)
 * [Performance](Performance.ipynb)
 * Maybe: "Unsolveable" or "multiple solutions" tolerance
@@ -12,14 +12,14 @@ Notebooks to finish / polish:
 
 ## tester.py
 
-* `run_single_test` stashes last puzzle test result as private instance variable - feels dodgy?
+* `run_single_test` stashes last puzzle test result as private instance variable - feels dodgy. I don't like it.
 
 
 ## sudoku.py
 
 * Why is `StopIteration` never raised line 230?
 * Solver should take a timelimit parameter (or PuzzleTester should be able to timeout a solver)
-* Solver (all classes really) needs a __repr__ method
+* Solver (all classes really) needs a `__repr__` method
 
 
 ## Sudoku Solver.ipynb
