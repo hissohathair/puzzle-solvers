@@ -30,7 +30,7 @@ Classes:
     SATSolver: Converts a SudokuPuzzle to a set of SAT clauses and then passes
         those to pycosat for solving. Fastest and most consistent performer.
 """
-
+import sys
 import collections
 import pycosat
 
@@ -38,6 +38,14 @@ from puzzle.latinsquare import LatinSquare, from_string, build_empty_grid
 
 
 DEFAULT_SUDOKU_SIZE = 9
+
+def _log(msg):
+    """Print a log message on stderr - called by solver methods.
+
+    Attributes:
+        msg: String to print.
+    """
+    print(msg, file=sys.stderr)
 
 
 class SudokuPuzzle(LatinSquare):
@@ -140,7 +148,7 @@ class SudokuPuzzle(LatinSquare):
         box_y = y // self.box_size
         return (box_x * self.box_size) + box_y
 
-    def set(self, x, y, value):
+    def set(self, x, y, value, reason=""):
         """Sets value of cell (x,y) to value, updating constraints.
 
         Calls the parent (LatinSquare) set method first, then updates the
@@ -152,6 +160,10 @@ class SudokuPuzzle(LatinSquare):
 
         # Update box constraints
         self.__allowed_values_for_box[self.box_xy_to_num(x, y)].remove(value)
+
+        # Log the reason, if given
+        if reason:
+            _log(reason)
 
     def clear(self, x, y):
         """Clears the value at x,y. Will update the box constraints."""
@@ -260,7 +272,6 @@ class SudokuPuzzle(LatinSquare):
 # SOLVERS dict is filled in by @register_solver decorator
 
 SOLVERS = dict()
-
 
 def register_solver(cls):
     """Register class as a solver, populating SOLVERS. Private function."""
@@ -423,9 +434,9 @@ class DeductiveSolver(ConstraintPropogationSolver):
         num_cells_updated = 1
         while num_cells_updated > 0:
             num_cells_updated = 0
+            num_cells_updated += self.solve_two_out_of_three(puzzle)
             num_cells_updated += self.solve_single_possibilities(puzzle)
             num_cells_updated += self.solve_only_squares(puzzle)
-            num_cells_updated += self.solve_two_out_of_three(puzzle)
 
         # Deductive methods can't do any more - go to fall back if needed
         if puzzle.is_solved():
@@ -457,7 +468,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 possibles = puzzle.get_allowed_values(*m)
                 if len(possibles) == 1:
                     (value,) = possibles
-                    puzzle.set(*m, value)
+                    puzzle.set(*m, value, f"Writing {value} at {m} because it's the only possible value left for that cell")
                     num_cells_updated += 1
             total_cells_updated += num_cells_updated
 
@@ -517,7 +528,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 # only one possible location?
                 if len(possible_cells) == 1:
                     num_cells_updated += 1
-                    puzzle.set(*possible_cells[0], value)
+                    puzzle.set(*possible_cells[0], value, f"Writing {value} at {possible_cells[0]} because {value} can't go anywhere else in row {possible_cells[0][0]}")
 
         return num_cells_updated
 
@@ -543,7 +554,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 if len(possible_cells) == 1:
                     # print(f"Column {y} needs a {v} and it can only go here {possible_cells}", file=sys.stderr)
                     num_cells_updated += 1
-                    puzzle.set(*possible_cells[0], value)
+                    puzzle.set(*possible_cells[0], value, f"Writing {value} at {possible_cells[0]} because {value} can't go anywhere else in column {possible_cells[0][1]}")
 
         return num_cells_updated
 
@@ -570,7 +581,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 # Only one possible location?
                 if len(possible_cells) == 1:
                     num_cells_updated += 1
-                    puzzle.set(*possible_cells[0], value)
+                    puzzle.set(*possible_cells[0], value, f"Writing {value} at {possible_cells[0]} because {value} can't go anywhere else in this box")
 
         return num_cells_updated
 
@@ -642,7 +653,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 # If there's only one cell available, it must be where val belongs
                 if len(cells) == 1:
                     i, j = cells[0]
-                    puzzle.set(i, j, val)
+                    puzzle.set(i, j, val, f"Writing {val} at ({i},{j}) because that's the only available cell for row {i}")
                     num_cells_updated += 1
 
         return num_cells_updated
@@ -689,7 +700,7 @@ class DeductiveSolver(ConstraintPropogationSolver):
                 # If there's only one cell available, it must be where val belongs
                 if len(cells) == 1:
                     i, j = cells[0]
-                    puzzle.set(i, j, val)
+                    puzzle.set(i, j, val, f"Writing {val} at ({i},{j}) because that's the only available cell for column {j}")
                     num_cells_updated += 1
 
         return num_cells_updated
@@ -759,7 +770,8 @@ class SATSolver:
                     return d
 
         for m in puzzle.next_empty_cell():
-            puzzle.set(*m, read_cell(*m))
+            val = read_cell(*m)
+            puzzle.set(*m, f"Writing {val} to {m} because it's in the SAT solution set")
 
         return puzzle.is_solved()
 
